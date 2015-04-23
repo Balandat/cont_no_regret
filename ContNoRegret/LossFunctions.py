@@ -2,7 +2,7 @@
 A collection of LossFunction classes for the Continuous No Regret Problem.  
 
 @author: Maximilian Balandat, Walid Krichene
-@date: Dec 4, 2014
+@date: Apr 23, 2015
 '''
 
 import numpy as np
