@@ -84,6 +84,40 @@ class GaussianLossFunction(LossFunction):
         return self.M*((2*np.pi)**self.domain.n*np.e*np.linalg.det(self.p.cov)*lambdamin)**(-0.5)
     
     
+class PolynomialLossFunction(LossFunction):
+    """ A polynomial loss function in n dimensions of arbitrary order, 
+        represented in the basis of monomials """ 
+    
+    def __init__(self, domain, coeffs, exponents):
+        """ Construct a PolynomialLossFunction that is the sum of M monomials.
+            coeffs is an M-dimensional array containing the coefficients of the
+            monomials, and exponents is a list of n-tuples of length M, with 
+            the i-th tuple containing the exponents of the n variables in the monomial. 
+ 
+            For example, the polynomial l(x) = 3*x_1^3 + 2*x_1*x_3 + x2^2 + 2.5*x_2*x_3 + x_3^3
+            in dimension n=3 is constructed using
+                coeffs = [3, 2, 1, 2.5, 1] and
+                exponents = [(3,0,0), (1,0,1), (0,2,0), (0,1,1), (0,0,3)] 
+        """ 
+        self.domain = domain
+        self.polydict = {exps:coeff for coeff,exps in zip(coeffs,exponents)}
+
+    def val(self, points):
+        monoms = np.array([points**exps for exps in self.polydict.keys()]).prod(2)
+        return np.sum([monom*coeff for monom,coeff in zip(monoms, self.polydict.values())], axis=0)
+    
+    def __add__(self, poly2):
+        """ Add two PolynomialLossFunction objects (assumes that both polynomials 
+            are defined over the same domain. """
+        newdict = self.polydict.copy()
+        for exps, coeff in poly2.polydict.items():
+            try:
+                newdict[exps] = newdict[exps] + coeff
+            except KeyError:
+                newdict[exps] = coeff
+        return PolynomialLossFunction(self.domain, newdict.values(), newdict.keys())
+        
+    
 class QuadraticLossFunction(LossFunction):
     """ Loss given by l(s) = 0.5 (s-mu)'Q(s-mu) + c, with Q>0 and c>= 0. 
         This assumes that mu is in the domain! """ 
