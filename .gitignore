@@ -1,3 +1,6 @@
+## Ignore result folder completely
+results/
+
 ## Core latex/pdflatex auxiliary files:
 *.aux
 *.lof
@@ -7,12 +10,11 @@
 *.out
 *.toc
 
-## Intermediate documents:
+## Intermediate documents, image files, figures, etc.:
 *.dvi
-# these rules might exclude image files for figures etc.
-# *.ps
-# *.eps
-# *.pdf
+*.ps
+*.eps
+*.pdf
 
 ## Bibliography auxiliary files (bibtex/biblatex/biber):
 *.bbl
@@ -162,5 +164,3 @@ local.properties
 # Matlab
 .m~
 
-# Idea IDE
-Code/ContNoRegret/.idea/*
