@@ -2,7 +2,7 @@
 A collection of Domain classes for the Continuous No Regret Problem.  
 
 @author: Maximilian Balandat, Walid Krichene
-@date: Apr 23, 2015
+@date: Apr 24, 2015
 '''
 
 import numpy as np
@@ -283,11 +283,13 @@ class UnionOfDisjointnBoxes(Domain):
         return bbox_diameter, volume, np.min(volumes)/volume
     
     def bbox(self):
-        """ Returns the bounding box nbox """
-        return NotImplementedError
-#         lb = np.min([rect.lb for rect in self.rects], axis=0)
-#         ub = np.max([rect.ub for rect in self.rects], axis=0)
-#         return Rectangle((lb[0], ub[0]), (lb[1], ub[1]))
+        """ Returns the bounding nBox """
+        lower = np.array([[self.nboxes[i].bounds[j][0] for j in range(self.n)] 
+                          for i in range(len(self.nboxes))]).min(axis=0)
+        upper = np.array([[self.nboxes[i].bounds[j][1] for j in range(self.n)] 
+                          for i in range(len(self.nboxes))]).max(axis=0)
+        bounds = [(low, high) for low,high in zip(lower, upper)]
+        return nBox(bounds)
     
     def grid(self, N):
         """ Returns a uniform grid with at least N grid points """
