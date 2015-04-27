@@ -2,14 +2,14 @@
 Some functions for the dual averaging no-regret work
 
 @author: Maximilian Balandat
-@date: Mar 5, 2015
+@date: Apr 24, 2015
 '''
 
 import numpy as np
 
 
-class ZeroPotential(object):
-    """ Base class for zero potentials """
+class OmegaPotential(object):
+    """ Base class for omega potentials """
         
     def phi(self, u):
         """ Returns phi(u), the value of the zero-potential at the points u"""
@@ -33,8 +33,8 @@ class ZeroPotential(object):
         return NotImplementedError
     
     
-class ExponentialZeroPotential(ZeroPotential):
-    """ The zero potential that results in Entropy Dual Averaging """
+class ExponentialPotential(OmegaPotential):
+    """ The exponential potential, which results in Entropy Dual Averaging """
     
     def __init__(self):
         """ Constructor """
@@ -61,10 +61,39 @@ class ExponentialZeroPotential(ZeroPotential):
             function of the zero-potential at the points u """
         return 1/u
    
+   
+class IdentityPotential(OmegaPotential):
+    """ The identity potential Phi(x) = x, which results in the Euclidean Projection  """
+    
+    def __init__(self):
+        """ Constructor """
+        pass
+        
+    def phi(self, u):
+        """ Returns phi(u), the value of the zero-potential at the points u"""
+        return u
+        
+    def phi_prime(self, u):
+        """ Returns phi'(u), the first derivative of the zero-potential at the points u """
+        return np.ones_like(u)
+ 
+    def phi_double_prime(self, u):
+        """ Returns phi''(u), the second derivative of the zero-potential at the points u """
+        return np.zeros_like(u)
+     
+    def phi_inv(self, u):
+        """ Returns phi^{-1}(u), the inverse function of the zero-potential at the points u """
+        return u
+     
+    def phi_inv_prime(self, u):
+        """ Returns phi^{-1}'(u), the first derivative of the inverse 
+            function of the zero-potential at the points u """
+        return np.ones_like(u)
+   
 
-class CompositeZeroPotential(ZeroPotential):
-    """ A composite zero potential formed by stitching together
-        fraction and quadratic functions """
+class CompositeOmegaPotential(OmegaPotential):
+    """ A composite omega potential formed by stitching together a
+        fractional and a quadratic function """
     
     def __init__(self, gamma=2):
         """ Constructor """

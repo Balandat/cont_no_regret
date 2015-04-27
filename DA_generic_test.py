@@ -10,7 +10,7 @@ from ContNoRegret.Distributions import Uniform
 from ContNoRegret.LossFunctions import GaussianLossFunction
 from ContNoRegret.HedgeAlgorithm import GaussianNoRegretProblem
 from ContNoRegret.utils import plot_results, create_random_Sigmas
-from ContNoRegret.DualAveraging import ExponentialZeroPotential, CompositeZeroPotential
+from ContNoRegret.DualAveraging import ExponentialPotential, CompositeOmegaPotential, IdentityPotential
 from scipy.stats import expon
 
 # set up some basic parameters
@@ -37,9 +37,9 @@ thetas = [1]
 alphas = [0.5]
 
 # zero_pot = ExponentialZeroPotential()
-zero_pot = CompositeZeroPotential(gamma=1.5)
+zero_pot = CompositeOmegaPotential(gamma=1.5)
 
 results = [gaussprob.run_simulation(N, alphas=alphas, thetas=thetas, Ngrid=Ngrid, algo='DA_generic', 
                                     potential=zero_pot, ngrid=(100,100))]
-plot_results(results, offset=25, filename='figures/DA_generic')
+plot_results(results, offset=25, filename='results/figures/DA_generic')
 

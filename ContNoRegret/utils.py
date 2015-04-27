@@ -17,6 +17,7 @@ from scipy.optimize import brentq
 from scipy.integrate import nquad
 from scipy.special import gamma as Gamma
 from .Domains import Rectangle, UnionOfDisjointRectangles
+from .LossFunctions import PolynomialLossFunction
 import ContNoRegret
 from scipy.interpolate.fitpack2 import RectBivariateSpline
 import timeit
@@ -315,6 +316,44 @@ def nustar_generic(dom, potential, eta, Lspline, nu_prev=1000):
     (nustar, res) = brentq(f, a, nu_prev, full_output=True)
     print('iterations: {},  function calls: {}'.format(res.iterations, res.function_calls))
     return nustar
+
+def nustar_polynomial(dom, potential, eta, Loss, nu_prev=1000):
+    """ Determines the normalizing nustar for the dual-averaging 
+        update for polynomial loss functions """
+    if isinstance(dom, ContNoRegret.Domains.nBox):
+        ranges = [dom.bounds]
+    elif isinstance(dom, ContNoRegret.Domains.UnionOfDisjointnBoxes):
+        ranges = [nbox.bounds for nbox in dom.nboxes]
+    else:
+        raise Exception('For now domain must be an nBox or a UnionOfDisjointnBoxes!')    
+    phi = lambda s,nu: potential.phi(-eta*(Loss.val(np.array(s, ndmin=2)) + nu))
+    f = lambda nu: np.sum([nquad(phi, rng, [nu])[0] for rng in ranges]) - 1
+    a = -1/eta*potential.phi_inv(1/dom.volume) - Lmax
+    print('search interval: [{},{}]'.format(a,nu_prev))
+    (nustar, res) = brentq(f, a, nu_prev, full_output=True)
+    print('iterations: {},  function calls: {}'.format(res.iterations, res.function_calls))
+    return nustar
+
+    
+    lines = ['# include <math.h>\n',
+             '# include "polynomial/polynomial.h"\n\n',
+             'int M = {};\n'.format(dom.n),
+             'int O'
+             'double gam = {};\n'.format(gamma),
+             'double eta = {};\n'.format(eta),
+             'double Q11 = {};\n'.format(Q[0,0]),
+             'double Q12 = {};\n'.format(Q[0,1]),
+             'double Q22 = {};\n'.format(Q[1,1]),
+             'double c = {};\n\n'.format(c),
+             'double phi(int n, double args[n]){\n',
+             '    double x[2];\n'
+             '    x[0] = args[0] - {};\n'.format(mu[0]),
+             '    x[1] = args[1] - {};\n'.format(mu[1]),
+             '    return pow(gam/(gam-1) + eta*(0.5*(Q11*pow(x[0],2.0)+2*Q12*x[0]*x[1]+Q22*pow(x[1],2.0)) + c + args[2]), -gam);}']
+    
+    
+    
+        
         
 
 

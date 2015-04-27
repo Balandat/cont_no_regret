@@ -37,10 +37,10 @@ quadprob = QuadraticNoRegretProblem(dom, lossfuncs, Lbnd, M)
 thetas = [1]
 alphas = [0.5]
 
-results = [quadprob.run_simulation(N, alphas=alphas, thetas=thetas, Ngrid=Ngrid, algo='DA_Quad', gamma=1.5),
-           quadprob.run_simulation(N, alphas=alphas, thetas=thetas, Ngrid=Ngrid, algo='DA_Quad', gamma=1.75),
-           quadprob.run_simulation(N, alphas=alphas, thetas=thetas, Ngrid=Ngrid, algo='DA_Quad', gamma=2.5),
-           quadprob.run_simulation(N, alphas=alphas, thetas=thetas, Ngrid=Ngrid, algo='DA_Quad', gamma=5)]
+results = [quadprob.run_simulation(N, alphas=alphas, thetas=thetas, Ngrid=Ngrid, algo='DA_Quad', gamma=1.75)]#,
+#            quadprob.run_simulation(N, alphas=alphas, thetas=thetas, Ngrid=Ngrid, algo='DA_Quad', gamma=1.75),
+#            quadprob.run_simulation(N, alphas=alphas, thetas=thetas, Ngrid=Ngrid, algo='DA_Quad', gamma=2.5),
+#            quadprob.run_simulation(N, alphas=alphas, thetas=thetas, Ngrid=Ngrid, algo='DA_Quad', gamma=5)]
 #            quadprob.run_simulation(N, alphas=alphas, thetas=thetas, Ngrid=Ngrid, algo='hedge')]
-plot_results(results, offset=500, filename='figures/DA_Quad_betas')
+plot_results(results, offset=500, filename='results/figures/DA_Quad_betas')
 

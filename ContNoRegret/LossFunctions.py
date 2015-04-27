@@ -100,6 +100,7 @@ class PolynomialLossFunction(LossFunction):
                 exponents = [(3,0,0), (1,0,1), (0,2,0), (0,1,1), (0,0,3)] 
         """ 
         self.domain = domain
+        self.coeffs, self.exponents = coeffs, exponents
         self.polydict = {exps:coeff for coeff,exps in zip(coeffs,exponents)}
 
     def val(self, points):
