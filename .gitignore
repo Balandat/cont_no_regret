@@ -1,5 +1,7 @@
-## Ignore result folder completely
+## Ignore temp and result folders completely
+temp/
 results/
+.ipynb_checkpoints
 
 ## Core latex/pdflatex auxiliary files:
 *.aux
