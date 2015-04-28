@@ -2,10 +2,11 @@
 A collection of Domain classes for the Continuous No Regret Problem.  
 
 @author: Maximilian Balandat, Walid Krichene
-@date: Apr 24, 2015
+@date: Apr 27, 2015
 '''
 
 import numpy as np
+from scipy.misc import factorial
 from cvxopt import solvers, matrix
 
 class Domain(object):
@@ -306,6 +307,39 @@ class UnionOfDisjointnBoxes(Domain):
         samples = np.array([nbox.sample_uniform(N) for nbox in self.nboxes])
         return samples[select, np.arange(N)]
     
+    
+class UnitSimplex(Domain):
+    """ The k-unit simplex (i.e. x_0,x_1,...,x_k s.t. x_i>=0 and sum(x_i)=1) """
+    
+    def __init__(self, k):
+        self.k, self.n = k, k+1
+        self.cvx = True
+        self.diameter, self.volume, self.v = self.compute_parameters()
+        
+    def iselement(self, points):
+        """ Returns boolean array with length points.shape[0]. Element is
+            "True" if point is contained in domain and "False" otherwise """
+        return np.all(0<=points, axis=1)*np.all(points<=1, axis=1)*(np.sum(points, axis=1) == True)
+
+    def compute_parameters(self):
+        """ Computes diameter, volume and uniformity parameter v of the domain for later use """
+        return np.sqrt(self.n), 1/factorial(self.k), 1.0
+    
+    def bbox(self):
+        """ The bounding box of a k-unit simplex is the (k+1) unit cube """
+        return nBox([(0,1)]*self.n)
+    
+    def grid(self, N):
+        """ Returns a uniform grid with at least N gridpoints """
+        # this does not seem super straightforward
+        return NotImplementedError
+           
+    def sample_uniform(self, N):
+        """ Draws N samples uniformly from the k-unit simplex. This is just
+            sampling from a Dirichlet distribution with all parameters equal to 1. """
+        return np.random.dirichlet([1]*self.k, N)
+    
+
       
 def CAL():
     """ Helper function to create the 'CAL' set """
