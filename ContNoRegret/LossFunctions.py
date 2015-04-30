@@ -19,6 +19,13 @@ class LossFunction(object):
         """ Returns values of the loss function at the specified points """
         raise NotImplementedError
     
+    def set_bounds(self, bounds):
+        """ Allows to add lower and upper bounds to the function. Helpful for
+            finding a lower bound on nustar in the dual averaging algorithm.
+            bounds here is a tuple/list with bounds[0] and bounds[1] being the 
+            lower and upper bound on the function over the domain. """
+        self.bounds = bounds
+        
     def val_grid(self, x, y):
         """ Computes the value of the loss on rectangular grid (for now assume 2dim) """
         points = np.array([[a,b] for a in x for b in y])
@@ -83,7 +90,31 @@ class GaussianLossFunction(LossFunction):
         lambdamin = eigh(self.p.cov, eigvals=(0,0), eigvals_only=True)
         return self.M*((2*np.pi)**self.domain.n*np.e*np.linalg.det(self.p.cov)*lambdamin)**(-0.5)
     
+
+class AffineLossFunction(LossFunction):
+    """ An affine loss function in n dimensions """ 
     
+    def __init__(self, domain, a, b):
+        """ AffineLossFunction of the form l(s) = <a,s> + b, 
+            where a is a vector in R^n and b is a scalar. """
+        self.domain = domain
+        self.a, self.b = np.array(a), b
+
+    def val(self, points):
+        return np.dot(points, self.a) + self.b
+    
+    def grad(self, points): 
+        return np.repeat(np.array(self.a, ndmin=2), points.shape[0], axis=0)
+    
+    def __add__(self, affine2):
+        """ Add two AffineLossFunction objects (assumes that both functions
+            are defined over the same domain. """
+        if isinstance(affine2, AffineLossFunction):
+            return AffineLossFunction(self.domain, self.a + affine2.a, self.b + affine2.b)
+        else:
+            raise Exception('So far can only add two affine loss functions!')
+
+ 
 class PolynomialLossFunction(LossFunction):
     """ A polynomial loss function in n dimensions of arbitrary order, 
         represented in the basis of monomials """ 
@@ -150,8 +181,7 @@ class QuadraticLossFunction(LossFunction):
     def Hessian(self, points): 
         return np.array([self.Q,]*points.shape[0])
     
-    
-    
+
 
 class CumulativeLoss(LossFunction):
     """ Class for cumulative loss function objects """
