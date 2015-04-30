@@ -289,16 +289,21 @@ def nustar(dom, potential, eta, Loss, nu_prev=1000):
     elif isinstance(dom, ContNoRegret.Domains.UnionOfDisjointnBoxes):
         ranges = [nbox.bounds for nbox in dom.nboxes]
     else:
-        raise Exception('For now, domain must be an nBox or a UnionOfDisjointnBoxes!')
+        raise Exception('For now, domain must be an nBox or a UnionOfDisjointnBoxes!')        
     with open('libs/tmplib.c', 'w') as file:
         file.writelines(generate_ccode(dom, potential, eta, Loss))
     call(['gcc', '-shared', '-o', 'libs/tmplib.dylib', '-fPIC', 'libs/tmplib.c'])
     lib = ctypes.CDLL('libs/tmplib.dylib')
     lib.phi.restype = ctypes.c_double
     lib.phi.argtypes = (ctypes.c_int, ctypes.c_double)
-    f = lambda nu: np.sum([nquad(lib.phi, rng, [nu])[0] for rng in ranges]) - 1
-    a = -Loss.bounds[1] - potential.phi_inv(1/dom.volume)/eta # this is (coarse) lower bound on nustar
-    nustar = brentq(f, a, nu_prev)
+    if isinstance(Loss, ExponentialPotential):
+        # in this case we don't have to search for nustar, we can find it (semi-)explicitly
+        integral = np.sum([nquad(lib.phi, rng, [0])[0] for rng in ranges])
+        nustar = np.log(integral)/eta
+    else:
+        f = lambda nu: np.sum([nquad(lib.phi, rng, [nu])[0] for rng in ranges]) - 1
+        a = -Loss.bounds[1] - potential.phi_inv(1/dom.volume)/eta # this is (coarse) lower bound on nustar
+        nustar = brentq(f, a, nu_prev)
     dlclose(lib._handle) # this is to release the lib, so we can import the new version
     os.remove('libs/tmplib.c') # clean up
     os.remove('libs/tmplib.dylib') # clean up
