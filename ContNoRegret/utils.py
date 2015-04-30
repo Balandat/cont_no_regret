@@ -14,33 +14,11 @@ from matplotlib import pyplot as plt
 from scipy.linalg import orth, eigh
 from scipy.stats import uniform, gamma, linregress
 from scipy.optimize import brentq
-from scipy.integrate import nquad, dblquad
-from scipy.special import gamma as Gamma
-from .Domains import Rectangle, UnionOfDisjointRectangles
-from .LossFunctions import PolynomialLossFunction
-from .DualAveraging import ExponentialPotential, IdentityPotential, CompositeOmegaPotential
+from scipy.integrate import nquad
+from .LossFunctions import PolynomialLossFunction, AffineLossFunction
+from .DualAveraging import ExponentialPotential, IdentityPotential, CompositeOmegaPotential, pNormPotential
 import ContNoRegret
-from scipy.interpolate.fitpack2 import RectBivariateSpline
 
-
-# def create_random_Sigmas(n, N, lambdamin, dist):
-#     """ Creates N random nxn covariance matrices s.t. the Lipschitz 
-#         constants are uniformly bounded by L. Here dist is a 'frozen' 
-#         scipy.stats probability distribution supported on R+"""
-#     # compute lower bound for eigenvalues
-# #     lambdamin = 2
-# #     gammamax = np.sqrt(lambdamin*np.e*L**2)
-#     Sigmas = []
-#     for i in range(N):
-#         # create random orthonormal matrix
-#         V = orth(np.random.uniform(size=(n,n)))   
-#         # create n random eigenvalues from the distribution and shift them by lambdamin
-#         lambdas = lambdamin + dist.rvs(n)
-#         Sigma = np.zeros((n,n))
-#         for lbda, v in zip(lambdas, V):
-#             Sigma = Sigma + lbda*np.outer(v,v)
-#         Sigmas.append(Sigma)
-#     return np.array(Sigmas)
 
 def create_random_gammas(covs, Lbnd, dist=uniform()):
     """ Creates a random scaling factor gamma for each of the covariance matrices
@@ -275,22 +253,12 @@ def nustar_quadratic(dom, gamma, eta, Q, mu, c, nu_prev=1000):
     else:
         raise Exception('For now domain must be a Rectangle or a UnionOfDisjointRectangles!')
     f = lambda nu: np.sum([nquad(lib.phi, rng, [nu])[0] for rng in ranges]) - 1      
-#     def ftest():
-#         return f(-1)
-#     nbr = 10
-#     print('Time passed for {} numerical integrations: {}'.format(nbr, timeit.timeit(ftest, number=nbr)))
     a = (0.001 - gamma/(gamma-1))/eta - c # this is a lower bound on nustar
     nustar = brentq(f, a, nu_prev)#, full_output=True)
     dlclose(lib._handle) # this is to release the lib, so we can import the new version
     os.remove('tmpfunc.c') # clean up
     os.remove('tmpfunc.dylib') # clean up
     return nustar
-
-#     phi = lambda s1,s2,nu: (gamma/(gamma-1) + eta*(0.5*np.dot(np.dot(Q,[s1-mu[0],s2-mu[1]]),[s1-mu[0],s2-mu[1]]) + c + nu))**(-gamma)    
-#     ranges = [(dom.lb[0], dom.ub[0]), (dom.lb[1], dom.ub[1])]
-#     f = lambda nu: nquad(phi, ranges, args=[nu])[0] - 1
-#     a = (0.001 - gamma/(gamma-1))/eta - c
-#     return brentq(f, a, nu_prev)#, full_output=True)
 
 def nustar_generic(dom, potential, eta, Lspline, nu_prev=1000):
     """ Determines the normalizing nustar for the dual-averaging update 
@@ -305,10 +273,6 @@ def nustar_generic(dom, potential, eta, Lspline, nu_prev=1000):
     else:
         raise Exception('For now domain must be a Rectangle or a UnionOfDisjointRectangles!')
     f = lambda nu: np.sum([nquad(phi, rng, [nu])[0] for rng in ranges]) - 1
-#     def ftest():
-#         return f(-1)
-#     nbr = 10
-#     print('Time passed for {} numerical integrations: {}'.format(nbr, timeit.timeit(ftest, number=nbr)))
     knots = Lspline.get_knots()
     Lmax = Lspline.ev(knots[0], knots[1]).max()
     a = -1/eta*potential.phi_inv(1/dom.volume) - Lmax
@@ -318,9 +282,8 @@ def nustar_generic(dom, potential, eta, Lspline, nu_prev=1000):
     return nustar
 
 
-def nustar_polynomial(dom, potential, eta, Loss, nu_prev=1000):
-    """ Determines the normalizing nustar for the dual-averaging 
-        update for polynomial loss functions """
+def nustar(dom, potential, eta, Loss, nu_prev=1000):
+    """ Determines the normalizing nustar for the dual-averaging update """
     if isinstance(dom, ContNoRegret.Domains.nBox):
         ranges = [dom.bounds]
     elif isinstance(dom, ContNoRegret.Domains.UnionOfDisjointnBoxes):
@@ -347,25 +310,37 @@ def generate_ccode(dom, potential, eta, Loss):
         integration (using ctypes). Hard-codes known parameters (except s and nu) as
         literals and returns a list of strings that are the lines of a C source file. """
     header = ['#include <math.h>\n\n',
-              'double eta = {};\n'.format(eta),
-              'double c[{}] = {{{}}};\n'.format(Loss.m, ','.join(str(coeff) for coeff in Loss.coeffs)),
-              'double e[{}] = {{{}}};\n\n'.format(Loss.m*dom.n, ','.join(str(xpnt) for xpntgrp in Loss.exponents for xpnt in xpntgrp))]
-    poly = ['double phi(int n, double args[n]){\n',
-            '   double nu = *(args + {});\n'.format(dom.n),
-            '   int i,j;\n',
-            '   double mon;\n',  
-            '   double loss = 0.0;\n',
-            '   for (i=0; i<{}; i++){{\n'.format(Loss.m),
-            '     mon = 1.0;\n',
-            '     for (j=0; j<{}; j++){{\n'.format(dom.n),
-            '       mon = mon*pow(args[j], e[i*{}+j]);\n'.format(dom.n),
-            '       }\n',
-            '     loss += c[i]*mon;\n',
-            '     }\n']
+              'double eta = {};\n'.format(eta)]
+    if isinstance(Loss, AffineLossFunction):
+        affine = ['double a[{}] = {{{}}};\n'.format(dom.n, ','.join(str(a) for a in Loss.a)),
+                  'double phi(int n, double args[n]){\n',
+                  '   double nu = *(args + {});\n'.format(dom.n),
+                  '   int i;\n',
+                  '   double loss = {};\n'.format(Loss.b),
+                  '   for (i=0; i<{}; i++){{\n'.format(dom.n),
+                  '     loss += a[i]*(*(args + i));\n',
+                  '     }\n']
+        header = header + affine
+    elif isinstance(Loss, PolynomialLossFunction):
+        poly = ['double c[{}] = {{{}}};\n'.format(Loss.m, ','.join(str(coeff) for coeff in Loss.coeffs)),
+                'double e[{}] = {{{}}};\n\n'.format(Loss.m*dom.n, ','.join(str(xpnt) for xpntgrp in Loss.exponents for xpnt in xpntgrp)),
+                'double phi(int n, double args[n]){\n',
+                '   double nu = *(args + {});\n'.format(dom.n),
+                '   int i,j;\n',
+                '   double mon;\n',  
+                '   double loss = 0.0;\n',
+                '   for (i=0; i<{}; i++){{\n'.format(Loss.m),
+                '     mon = 1.0;\n',
+                '     for (j=0; j<{}; j++){{\n'.format(dom.n),
+                '       mon = mon*pow(args[j], e[i*{}+j]);\n'.format(dom.n),
+                '       }\n',
+                '     loss += c[i]*mon;\n',
+                '     }\n']
+        header = header + poly
     if isinstance(potential, ExponentialPotential):   
-        return header + poly + ['   return exp(-eta*(loss + nu));}']
+        return header + ['   return exp(-eta*(loss + nu));}']
     elif isinstance(potential, IdentityPotential):
-        return header + poly + ['   return -eta*(loss + nu);}']
+        return header + ['   return -eta*(loss + nu);}']
     elif isinstance(potential, CompositeOmegaPotential):
         omega_pot = ['   double z = -eta*(loss + nu);\n',
                      '   if(z<{}){{\n'.format(potential.c),
@@ -373,5 +348,14 @@ def generate_ccode(dom, potential, eta, Loss):
                      '   else{\n',
                      '     return {} + {}*z + {}*pow(z,2);}}\n'.format(*[a for a in potential.a]),
                      '   }']
-        return header + poly + omega_pot
+        return header + omega_pot
+    elif isinstance(potential, pNormPotential):
+        pNorm_pot = ['   double z = -eta*(loss + nu);\n',
+                     '   double w = pow(fabs(z), {});\n'.format(1/(potential.p - 1)),
+                     '   if(z<0){\n',
+                     '     return -w;}\n',
+                     '   else{\n',
+                     '     return w;}\n',
+                     '   }']
+        return header + pNorm_pot 
 
