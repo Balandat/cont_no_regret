@@ -14,13 +14,13 @@ from matplotlib import pyplot as plt
 from scipy.linalg import orth, eigh
 from scipy.stats import uniform, gamma, linregress
 from scipy.optimize import brentq
-from scipy.integrate import nquad
+from scipy.integrate import nquad, dblquad
 from scipy.special import gamma as Gamma
 from .Domains import Rectangle, UnionOfDisjointRectangles
 from .LossFunctions import PolynomialLossFunction
+from .DualAveraging import ExponentialPotential, IdentityPotential, CompositeOmegaPotential
 import ContNoRegret
 from scipy.interpolate.fitpack2 import RectBivariateSpline
-import timeit
 
 
 # def create_random_Sigmas(n, N, lambdamin, dist):
@@ -317,6 +317,7 @@ def nustar_generic(dom, potential, eta, Lspline, nu_prev=1000):
     print('iterations: {},  function calls: {}'.format(res.iterations, res.function_calls))
     return nustar
 
+
 def nustar_polynomial(dom, potential, eta, Loss, nu_prev=1000):
     """ Determines the normalizing nustar for the dual-averaging 
         update for polynomial loss functions """
@@ -325,35 +326,52 @@ def nustar_polynomial(dom, potential, eta, Loss, nu_prev=1000):
     elif isinstance(dom, ContNoRegret.Domains.UnionOfDisjointnBoxes):
         ranges = [nbox.bounds for nbox in dom.nboxes]
     else:
-        raise Exception('For now domain must be an nBox or a UnionOfDisjointnBoxes!')    
-    phi = lambda s,nu: potential.phi(-eta*(Loss.val(np.array(s, ndmin=2)) + nu))
-    f = lambda nu: np.sum([nquad(phi, rng, [nu])[0] for rng in ranges]) - 1
-    a = -1/eta*potential.phi_inv(1/dom.volume) - Lmax
-    print('search interval: [{},{}]'.format(a,nu_prev))
-    (nustar, res) = brentq(f, a, nu_prev, full_output=True)
-    print('iterations: {},  function calls: {}'.format(res.iterations, res.function_calls))
+        raise Exception('For now, domain must be an nBox or a UnionOfDisjointnBoxes!')
+    with open('libs/tmplib.c', 'w') as file:
+        file.writelines(generate_ccode(dom, potential, eta, Loss))
+    call(['gcc', '-shared', '-o', 'libs/tmplib.dylib', '-fPIC', 'libs/tmplib.c'])
+    lib = ctypes.CDLL('libs/tmplib.dylib')
+    lib.phi.restype = ctypes.c_double
+    lib.phi.argtypes = (ctypes.c_int, ctypes.c_double)
+    f = lambda nu: np.sum([nquad(lib.phi, rng, [nu])[0] for rng in ranges]) - 1
+    a = -Loss.bounds[1] - potential.phi_inv(1/dom.volume)/eta # this is (coarse) lower bound on nustar
+    nustar = brentq(f, a, nu_prev)
+    dlclose(lib._handle) # this is to release the lib, so we can import the new version
+    os.remove('libs/tmplib.c') # clean up
+    os.remove('libs/tmplib.dylib') # clean up
     return nustar
 
-    
-    lines = ['# include <math.h>\n',
-             '# include "polynomial/polynomial.h"\n\n',
-             'int M = {};\n'.format(dom.n),
-             'int O'
-             'double gam = {};\n'.format(gamma),
-             'double eta = {};\n'.format(eta),
-             'double Q11 = {};\n'.format(Q[0,0]),
-             'double Q12 = {};\n'.format(Q[0,1]),
-             'double Q22 = {};\n'.format(Q[1,1]),
-             'double c = {};\n\n'.format(c),
-             'double phi(int n, double args[n]){\n',
-             '    double x[2];\n'
-             '    x[0] = args[0] - {};\n'.format(mu[0]),
-             '    x[1] = args[1] - {};\n'.format(mu[1]),
-             '    return pow(gam/(gam-1) + eta*(0.5*(Q11*pow(x[0],2.0)+2*Q12*x[0]*x[1]+Q22*pow(x[1],2.0)) + c + args[2]), -gam);}']
-    
-    
-    
-        
-        
 
+def generate_ccode(dom, potential, eta, Loss):
+    """ Generates the c source code that is complied and used for faster numerical 
+        integration (using ctypes). Hard-codes known parameters (except s and nu) as
+        literals and returns a list of strings that are the lines of a C source file. """
+    header = ['#include <math.h>\n\n',
+              'double eta = {};\n'.format(eta),
+              'double c[{}] = {{{}}};\n'.format(Loss.m, ','.join(str(coeff) for coeff in Loss.coeffs)),
+              'double e[{}] = {{{}}};\n\n'.format(Loss.m*dom.n, ','.join(str(xpnt) for xpntgrp in Loss.exponents for xpnt in xpntgrp))]
+    poly = ['double phi(int n, double args[n]){\n',
+            '   double nu = *(args + {});\n'.format(dom.n),
+            '   int i,j;\n',
+            '   double mon;\n',  
+            '   double loss = 0.0;\n',
+            '   for (i=0; i<{}; i++){{\n'.format(Loss.m),
+            '     mon = 1.0;\n',
+            '     for (j=0; j<{}; j++){{\n'.format(dom.n),
+            '       mon = mon*pow(args[j], e[i*{}+j]);\n'.format(dom.n),
+            '       }\n',
+            '     loss += c[i]*mon;\n',
+            '     }\n']
+    if isinstance(potential, ExponentialPotential):   
+        return header + poly + ['   return exp(-eta*(loss + nu));}']
+    elif isinstance(potential, IdentityPotential):
+        return header + poly + ['   return -eta*(loss + nu);}']
+    elif isinstance(potential, CompositeOmegaPotential):
+        omega_pot = ['   double z = -eta*(loss + nu);\n',
+                     '   if(z<{}){{\n'.format(potential.c),
+                     '     return pow({}-z, -{});}}\n'.format(potential.gamma*potential.c, potential.gamma),
+                     '   else{\n',
+                     '     return {} + {}*z + {}*pow(z,2);}}\n'.format(*[a for a in potential.a]),
+                     '   }']
+        return header + poly + omega_pot
 
