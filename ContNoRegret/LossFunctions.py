@@ -101,7 +101,15 @@ class PolynomialLossFunction(LossFunction):
         """ 
         self.domain = domain
         self.coeffs, self.exponents = coeffs, exponents
+        self.m = len(coeffs)
         self.polydict = {exps:coeff for coeff,exps in zip(coeffs,exponents)}
+
+    def set_bounds(self, bounds):
+        """ Allows to add lower and upper bounds to the function. Helpful for
+            finding a lower bound on nustar in the dual averaging algorithm.
+            bounds here is a tuple/list with bounds[0] and bounds[1] being the 
+            lower and upper bound on the function over the domain. """
+        self.bounds = bounds
 
     def val(self, points):
         monoms = np.array([points**exps for exps in self.polydict.keys()]).prod(2)
