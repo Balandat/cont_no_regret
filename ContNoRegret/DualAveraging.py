@@ -91,6 +91,37 @@ class IdentityPotential(OmegaPotential):
         return np.ones_like(u)
    
 
+class pNormPotential(OmegaPotential):
+    """ The potential phi(u) = sgn(u)*|u|**(1/(p-1)) """
+    
+    def __init__(self, p):
+        """ Constructor """
+        if (p<=1) or (p>2):
+            raise Exception('Need 1 < p <=2 !') 
+        self.p = p
+        
+    def phi(self, u):
+        """ Returns phi(u), the value of the pNorm-potential at the points u"""
+        return np.sign(u)*np.abs(u)**(1/(self.p - 1))
+        
+    def phi_prime(self, u):
+        """ Returns phi'(u), the first derivative of the pNorm-potential at the points u """
+        return np.abs(u)**((2 - self.p)/(self.p - 1))/(self.p - 1)
+ 
+    def phi_double_prime(self, u):
+        """ Returns phi''(u), the second derivative of the pNorm-potential at the points u """
+        return np.sign(u)*(2 - self.p)/((self.p - 1)**2)*np.abs(u)**((3 - 2*self.p)/(self.p - 2))
+     
+    def phi_inv(self, u):
+        """ Returns phi^{-1}(u), the inverse function of the pNorm-potential at the points u """
+        return np.sign(u)*np.abs(u)**(self.p - 1)
+     
+    def phi_inv_prime(self, u):
+        """ Returns phi^{-1}'(u), the first derivative of the inverse 
+            function of the pNorm-potential at the points u """
+        return (self.p - 1)*np.abs(u)**(self.p - 2)
+
+
 class CompositeOmegaPotential(OmegaPotential):
     """ A composite omega potential formed by stitching together a
         fractional and a quadratic function """
