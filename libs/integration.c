@@ -71,7 +71,10 @@ double exp_poly(int N, double args[N])
 		args[n+m+n*m+2]				: eta
 		args[n+m+n*m+3]				: nu
 */  
-  return exp(-args[N-2]*(poly_ctypes(N-2, &args[0]) + args[N-1]));
+  /* return exp(-args[N-2]*(poly_ctypes(N-2, &args[0]) + args[N-1])); */
+  int n = (int) args[N-3];
+  int m = (int) args[N-4];
+  return exp(-args[N-2]*(poly(n, m, &args[n], &args[n+m], &args[0]) + args[N-1]));
 }
 
 double identity_poly(int N, double args[N])
@@ -102,3 +105,5 @@ double composite_poly(int N, double args[N])
 */  
   return composite_potential(-args[N-3]*(poly_ctypes(N-3, &args[0]) + args[N-2]), args[N-1]);
 }
+
+
