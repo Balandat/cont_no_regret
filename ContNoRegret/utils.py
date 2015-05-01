@@ -5,19 +5,11 @@ Collection of utilities to analyze Continuous No-Regret algorithms
 @date Dec 4, 2014
 '''
 
-import ctypes
-from _ctypes import dlclose
 import numpy as np
-import os
-from subprocess import call
 from matplotlib import pyplot as plt
 from scipy.linalg import orth, eigh
 from scipy.stats import uniform, gamma, linregress
-from scipy.optimize import brentq
-from scipy.integrate import nquad
-from .LossFunctions import PolynomialLossFunction, AffineLossFunction
-from .DualAveraging import ExponentialPotential, IdentityPotential, CompositeOmegaPotential, pNormPotential
-import ContNoRegret
+from .LossFunctions import AffineLossFunction
 
 
 def create_random_gammas(covs, Lbnd, dist=uniform()):
@@ -79,6 +71,40 @@ def create_random_Cs(covs, dist=uniform()):
         pmax = ((2*np.pi)**covs.shape[1]*np.linalg.det(cov))**(-0.5)
         C[i] = np.random.uniform(low=pmax, high=1+pmax)
     return C
+
+def random_AffineLosses(dom, L, T, d=2):
+    """ Creates N random L-Lipschitz AffineLossFunction over domain dom,
+        and returns uniform bound M. For now sample the a-vector uniformly
+        from the n-ball. Uses random samples of Beta-like distributions as 
+        described in:
+        'R. Harman and V. Lacko. On decompositional algorithms for uniform 
+        sampling from n-spheres and n-balls. Journal of Multivariate 
+        Analysis, 101(10):2297 – 2304, 2010.'
+    """
+    lossfuncs, Ms = [], []
+    asamples = sample_Bnrd(dom.n, L, d, T)
+    for a in asamples:
+        lossfunc = AffineLossFunction(dom, a, 0)
+        lossmin, lossmax = lossfunc.minmax()
+        lossfunc.b = - lossmin
+        lossfunc.set_bounds([0, lossmax-lossmin])
+        lossfuncs.append(lossfunc)
+        Ms.append(lossfunc.bounds[1]) 
+    return lossfuncs, np.max(Ms)
+
+def sample_Bnrd(n, r, d, N):
+    """ Draw N independent samples from the B_n(r,d) distribution
+        discussed in:
+        'R. Harman and V. Lacko. On decompositional algorithms for uniform 
+        sampling from n-spheres and n-balls. Journal of Multivariate 
+        Analysis, 101(10):2297 – 2304, 2010.'
+    """
+    Bsqrt = np.sqrt(np.random.beta(n/2, d/2, size=N))
+    X = np.random.randn(N, n)
+    normX = np.linalg.norm(X, 2, axis=1)
+    S = X/normX[:, np.newaxis]
+    return r*Bsqrt[:, np.newaxis]*S
+
 
 # def compute_C(volS, n):
 #     """ Computes the constant C = vol(S)/vol(B_1), where B_1 is the unit ball in R^n """
@@ -221,146 +247,4 @@ def parse_regrets(reg_results, regrets, prob, theta, alpha, algo='hedge'):
     reg_results['tsavgbnd'].append(regret_bounds(prob.domain, theta, alpha, 
                                           prob.Lbnd, prob.M, prob.T, algo=algo))
     return reg_results
-        
-
-
-def nustar_quadratic(dom, gamma, eta, Q, mu, c, nu_prev=1000):
-    """ Determines the normalizing nustar for the dual-averaging update. """
-    # for speedup, implement function in C in a temporary shared library
-    lines = ['#include <math.h>\n',
-             'double gam = {};\n'.format(gamma),
-             'double eta = {};\n'.format(eta),
-             'double Q11 = {};\n'.format(Q[0,0]),
-             'double Q12 = {};\n'.format(Q[0,1]),
-             'double Q22 = {};\n'.format(Q[1,1]),
-             'double c = {};\n'.format(c),
-             'double phi(int n, double args[n]){\n',
-             '    double x[2];\n'
-             '    x[0] = args[0] - {};\n'.format(mu[0]),
-             '    x[1] = args[1] - {};\n'.format(mu[1]),
-             '    return pow(gam/(gam-1) + eta*(0.5*(Q11*pow(x[0],2.0)+2*Q12*x[0]*x[1]+Q22*pow(x[1],2.0)) + c + args[2]), -gam);}']
-    with open('tmpfunc.c', 'w') as file:
-        file.writelines(lines)
-    call(['gcc', '-shared', '-o', 'tmpfunc.dylib', '-fPIC', 'tmpfunc.c'])
-    lib = ctypes.CDLL('tmpfunc.dylib') # Use absolute path to testlib
-    lib.phi.restype = ctypes.c_double
-    lib.phi.argtypes = (ctypes.c_int, ctypes.c_double)
-    # now use this function for integration over the domain
-    if isinstance(dom, ContNoRegret.Domains.Rectangle):
-        ranges = [[(dom.lb[0], dom.ub[0]), (dom.lb[1], dom.ub[1])]]
-    elif isinstance(dom, ContNoRegret.Domains.UnionOfDisjointRectangles):
-        ranges = [[(rect.lb[0], rect.ub[0]), (rect.lb[1], rect.ub[1])] for rect in dom.rects]
-    else:
-        raise Exception('For now domain must be a Rectangle or a UnionOfDisjointRectangles!')
-    f = lambda nu: np.sum([nquad(lib.phi, rng, [nu])[0] for rng in ranges]) - 1      
-    a = (0.001 - gamma/(gamma-1))/eta - c # this is a lower bound on nustar
-    nustar = brentq(f, a, nu_prev)#, full_output=True)
-    dlclose(lib._handle) # this is to release the lib, so we can import the new version
-    os.remove('tmpfunc.c') # clean up
-    os.remove('tmpfunc.dylib') # clean up
-    return nustar
-
-def nustar_generic(dom, potential, eta, Lspline, nu_prev=1000):
-    """ Determines the normalizing nustar for the dual-averaging update 
-        (for now assume problem to be 2-dimensional) """
-    # create approximation of the integrand as a function of s1,s2,nu
-    phi = lambda s1,s2,nu: potential.phi(-eta*(Lspline(s1,s2) + nu))
-    # now use this function for integration over the domain
-    if isinstance(dom, ContNoRegret.Domains.Rectangle):
-        ranges = [[(dom.lb[0], dom.ub[0]), (dom.lb[1], dom.ub[1])]]
-    elif isinstance(dom, ContNoRegret.Domains.UnionOfDisjointRectangles):
-        ranges = [[(rect.lb[0], rect.ub[0]), (rect.lb[1], rect.ub[1])] for rect in dom.rects]
-    else:
-        raise Exception('For now domain must be a Rectangle or a UnionOfDisjointRectangles!')
-    f = lambda nu: np.sum([nquad(phi, rng, [nu])[0] for rng in ranges]) - 1
-    knots = Lspline.get_knots()
-    Lmax = Lspline.ev(knots[0], knots[1]).max()
-    a = -1/eta*potential.phi_inv(1/dom.volume) - Lmax
-    print('search interval: [{},{}]'.format(a,nu_prev))
-    (nustar, res) = brentq(f, a, nu_prev, full_output=True)
-    print('iterations: {},  function calls: {}'.format(res.iterations, res.function_calls))
-    return nustar
-
-
-def nustar(dom, potential, eta, Loss, nu_prev=1000):
-    """ Determines the normalizing nustar for the dual-averaging update """
-    if isinstance(dom, ContNoRegret.Domains.nBox):
-        ranges = [dom.bounds]
-    elif isinstance(dom, ContNoRegret.Domains.UnionOfDisjointnBoxes):
-        ranges = [nbox.bounds for nbox in dom.nboxes]
-    else:
-        raise Exception('For now, domain must be an nBox or a UnionOfDisjointnBoxes!')        
-    with open('libs/tmplib.c', 'w') as file:
-        file.writelines(generate_ccode(dom, potential, eta, Loss))
-    call(['gcc', '-shared', '-o', 'libs/tmplib.dylib', '-fPIC', 'libs/tmplib.c'])
-    lib = ctypes.CDLL('libs/tmplib.dylib')
-    lib.phi.restype = ctypes.c_double
-    lib.phi.argtypes = (ctypes.c_int, ctypes.c_double)
-    if isinstance(Loss, ExponentialPotential):
-        # in this case we don't have to search for nustar, we can find it (semi-)explicitly
-        integral = np.sum([nquad(lib.phi, rng, [0])[0] for rng in ranges])
-        nustar = np.log(integral)/eta
-    else:
-        f = lambda nu: np.sum([nquad(lib.phi, rng, [nu])[0] for rng in ranges]) - 1
-        a = -Loss.bounds[1] - potential.phi_inv(1/dom.volume)/eta # this is (coarse) lower bound on nustar
-        nustar = brentq(f, a, nu_prev)
-    dlclose(lib._handle) # this is to release the lib, so we can import the new version
-    os.remove('libs/tmplib.c') # clean up
-    os.remove('libs/tmplib.dylib') # clean up
-    return nustar
-
-
-def generate_ccode(dom, potential, eta, Loss):
-    """ Generates the c source code that is complied and used for faster numerical 
-        integration (using ctypes). Hard-codes known parameters (except s and nu) as
-        literals and returns a list of strings that are the lines of a C source file. """
-    header = ['#include <math.h>\n\n',
-              'double eta = {};\n'.format(eta)]
-    if isinstance(Loss, AffineLossFunction):
-        affine = ['double a[{}] = {{{}}};\n'.format(dom.n, ','.join(str(a) for a in Loss.a)),
-                  'double phi(int n, double args[n]){\n',
-                  '   double nu = *(args + {});\n'.format(dom.n),
-                  '   int i;\n',
-                  '   double loss = {};\n'.format(Loss.b),
-                  '   for (i=0; i<{}; i++){{\n'.format(dom.n),
-                  '     loss += a[i]*(*(args + i));\n',
-                  '     }\n']
-        header = header + affine
-    elif isinstance(Loss, PolynomialLossFunction):
-        poly = ['double c[{}] = {{{}}};\n'.format(Loss.m, ','.join(str(coeff) for coeff in Loss.coeffs)),
-                'double e[{}] = {{{}}};\n\n'.format(Loss.m*dom.n, ','.join(str(xpnt) for xpntgrp in Loss.exponents for xpnt in xpntgrp)),
-                'double phi(int n, double args[n]){\n',
-                '   double nu = *(args + {});\n'.format(dom.n),
-                '   int i,j;\n',
-                '   double mon;\n',  
-                '   double loss = 0.0;\n',
-                '   for (i=0; i<{}; i++){{\n'.format(Loss.m),
-                '     mon = 1.0;\n',
-                '     for (j=0; j<{}; j++){{\n'.format(dom.n),
-                '       mon = mon*pow(args[j], e[i*{}+j]);\n'.format(dom.n),
-                '       }\n',
-                '     loss += c[i]*mon;\n',
-                '     }\n']
-        header = header + poly
-    if isinstance(potential, ExponentialPotential):   
-        return header + ['   return exp(-eta*(loss + nu));}']
-    elif isinstance(potential, IdentityPotential):
-        return header + ['   return -eta*(loss + nu);}']
-    elif isinstance(potential, CompositeOmegaPotential):
-        omega_pot = ['   double z = -eta*(loss + nu);\n',
-                     '   if(z<{}){{\n'.format(potential.c),
-                     '     return pow({}-z, -{});}}\n'.format(potential.gamma*potential.c, potential.gamma),
-                     '   else{\n',
-                     '     return {} + {}*z + {}*pow(z,2);}}\n'.format(*[a for a in potential.a]),
-                     '   }']
-        return header + omega_pot
-    elif isinstance(potential, pNormPotential):
-        pNorm_pot = ['   double z = -eta*(loss + nu);\n',
-                     '   double w = pow(fabs(z), {});\n'.format(1/(potential.p - 1)),
-                     '   if(z<0){\n',
-                     '     return -w;}\n',
-                     '   else{\n',
-                     '     return w;}\n',
-                     '   }']
-        return header + pNorm_pot 
 
