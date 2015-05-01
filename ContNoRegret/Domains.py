@@ -223,6 +223,7 @@ class nBox(Domain):
             gives the lower and upper bound of the box in dimension i """
         self.n = len(bounds)
         self.cvx = True
+        self.verts = None
         self.bounds = bounds
         self.diameter, self.volume, self.v = self.compute_parameters()
         
@@ -243,6 +244,18 @@ class nBox(Domain):
         """ An nBox is its own Bounding Box """
         return self
     
+    def vertices(self):
+        """ Returns the vertices of the nBox """
+        if self.verts is None:
+            bounds = np.asarray(self.bounds)
+            shape = [2]*self.n
+            ix = np.indices(shape, dtype=int)
+            ix = ix.reshape(self.n, -1).T
+            for n, bnd in enumerate(bounds):
+                ix[:, n] = bnd[ix[:, n]]
+            self.verts = ix
+        return self.verts         
+            
     def grid(self, N):
         """ Returns a uniform grid with at least N gridpoints """
         Z = (np.prod([self.bounds[i][1] - self.bounds[i][0] for i in range(self.n)]))**(1/self.n)
