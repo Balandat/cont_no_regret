@@ -2,13 +2,18 @@
 A collection of LossFunction classes for the Continuous No Regret Problem.  
 
 @author: Maximilian Balandat
-@date: Apr 30, 2015
+@date: May 5, 2015
 '''
 
 import numpy as np
+import ctypes
+from _ctypes import dlclose
+import os
+from subprocess import call
 from matplotlib import pyplot as plt
 from matplotlib import cm
 from scipy.linalg import eigh
+from scipy.integrate import nquad
 from ContNoRegret.Distributions import Gaussian
 from ContNoRegret.Domains import nBox, UnionOfDisjointnBoxes
 
@@ -98,6 +103,8 @@ class AffineLossFunction(LossFunction):
     def __init__(self, domain, a, b):
         """ AffineLossFunction of the form l(s) = <a,s> + b, 
             where a is a vector in R^n and b is a scalar. """
+        if not len(a) == domain.n:
+            raise Exception('Dimension of a must be dimension of domain!')
         self.domain = domain
         self.a, self.b = np.array(a), b
         self.desc = 'Affine'
@@ -112,7 +119,6 @@ class AffineLossFunction(LossFunction):
             vertvals = self.val(self.domain.vertices())
             self.set_bounds([np.min(vertvals), np.max(vertvals)])
             return self.bounds
-            return vertvals
         elif isinstance(self.domain, UnionOfDisjointnBoxes):
             vertvals = np.array([self.val(nbox.vertices()) for nbox in self.domain.nboxes])
             self.set_bounds([np.min(vertvals), np.max(vertvals)])
@@ -120,7 +126,6 @@ class AffineLossFunction(LossFunction):
         else:
             raise Exception('Sorry, for now only nBoxes are supported for computing minimum and maximum of AffineLossFunctions')
 
-    
     def grad(self, points): 
         return np.repeat(np.array(self.a, ndmin=2), points.shape[0], axis=0)
     
@@ -132,6 +137,26 @@ class AffineLossFunction(LossFunction):
         else:
             raise Exception('So far can only add two affine loss functions!')
 
+    def norm(self, p):
+        """ Computes the p-Norm of the loss function over the domain """
+        if isinstance(self.domain, nBox):
+            nboxes = [self.domain]
+        elif isinstance(self.domain, UnionOfDisjointnBoxes):
+            nboxes = self.domain.nboxes
+        else:
+            raise Exception('Sorry, so far only nBox and UnionOfDisjointnBoxes are supported!')
+        ccode = ['#include <math.h>\n\n',
+                 'double a[{}] = {{{}}};\n\n'.format(self.domain.n, ','.join(str(ai) for ai in self.a)),
+                 'double f(int n, double args[n]){\n',
+                 '   int i;\n',
+                 '   double loss = {};\n'.format(self.b),
+                 '   for (i=0; i<{}; i++){{\n'.format(self.domain.n),
+                 '     loss += a[i]*args[i];}\n',
+                 '   return pow(fabs(loss), {});\n'.format(p),
+                 '   }']  
+        ranges = [nbox.bounds for nbox in nboxes]
+        return ctypes_integrate(ccode, ranges)**(1/p)
+            
  
 class PolynomialLossFunction(LossFunction):
     """ A polynomial loss function in n dimensions of arbitrary order, 
@@ -148,6 +173,10 @@ class PolynomialLossFunction(LossFunction):
                 coeffs = [3, 2, 1, 2.5, 1] and
                 exponents = [(3,0,0), (1,0,1), (0,2,0), (0,1,1), (0,0,3)] 
         """ 
+        if not len(coeffs) == len(exponents):
+            raise Exception('Size of coeffs must be size of exponents along first axis!')
+        if not len(exponents[0]) == domain.n:
+            raise Exception('Dimension of elements of coeffs must be dimension of domain!')
         self.domain = domain
         self.coeffs, self.exponents = coeffs, exponents
         self.m = len(coeffs)
@@ -176,12 +205,45 @@ class PolynomialLossFunction(LossFunction):
                 newdict[exps] = coeff
         return PolynomialLossFunction(self.domain, newdict.values(), newdict.keys())
         
+    def norm(self, p):
+        """ Computes the p-Norm of the loss function over the domain """
+        if isinstance(self.domain, nBox):
+            nboxes = [self.domain]
+        elif isinstance(self.domain, UnionOfDisjointnBoxes):
+            nboxes = self.domain.nboxes
+        else:
+            raise Exception('Sorry, so far only nBox and UnionOfDisjointnBoxes are supported!')
+        ccode = ['#include <math.h>\n\n',
+                 'double c[{}] = {{{}}};\n'.format(self.m, ','.join(str(coeff) for coeff in self.coeffs)),
+                 'double e[{}] = {{{}}};\n\n'.format(self.m*self.domain.n, ','.join(str(xpnt) for xpntgrp in self.exponents for xpnt in xpntgrp)),
+                 'double f(int n, double args[n]){\n',
+                 '   double nu = *(args + {});\n'.format(self.domain.n),
+                 '   int i,j;\n',
+                 '   double mon;\n',  
+                 '   double loss = 0.0;\n',
+                 '   for (i=0; i<{}; i++){{\n'.format(self.m),
+                 '     mon = 1.0;\n',
+                 '     for (j=0; j<{}; j++){{\n'.format(self.domain.n),
+                 '       mon = mon*pow(args[j], e[i*{}+j]);\n'.format(self.domain.n),
+                 '       }\n',
+                 '     loss += c[i]*mon;}\n',
+                 '   return pow(fabs(loss), {});\n'.format(p),
+                 '   }']  
+        ranges = [nbox.bounds for nbox in nboxes]
+        return ctypes_integrate(ccode, ranges)**(1/p)
+        
     
 class QuadraticLossFunction(LossFunction):
     """ Loss given by l(s) = 0.5 (s-mu)'Q(s-mu) + c, with Q>0 and c>= 0. 
         This assumes that mu is inside the domain! """ 
     
     def __init__(self, domain, mu, Q, c):
+        if not domain.n == len(mu):
+            raise Exception('Dimension of mu must be dimension of domain!')
+        if not domain.n == Q.shape[0]:
+            raise Exception('Dimension of Q must be dimension of domain!')
+        if not Q.shape[0] == Q.shape[1]:
+            raise Exception('Matrix Q must be square!')
         self.domain, self.mu, self.Q, self.c = domain, mu, Q, c
         self.desc = 'Quadratic'
         # implement computation of Lipschitz constant. Since gradient is 
@@ -192,6 +254,11 @@ class QuadraticLossFunction(LossFunction):
         x = points - self.mu
         return 0.5*np.sum(np.dot(x,self.Q)*x, axis=1)  + self.c
     
+    def minmax(self):
+        """ Compute the minimum and maximum of the loss function over the domain.
+            This assumes that the domain is an nBox. """
+        raise NotImplementedError
+            
     def min(self):
         return self.c
     
@@ -210,6 +277,33 @@ class QuadraticLossFunction(LossFunction):
                       + np.dot(btilde, mutilde))
         return QuadraticLossFunction(self.domain, mutilde, Qtilde, ctilde)
 
+    def norm(self, p):
+        """ Computes the p-Norm of the loss function over the domain """
+        if isinstance(self.domain, nBox):
+            nboxes = [self.domain]
+        elif isinstance(self.domain, UnionOfDisjointnBoxes):
+            nboxes = self.domain.nboxes
+        else:
+            raise Exception('Sorry, so far only nBox and UnionOfDisjointnBoxes are supported!')
+        ccode = ['#include <math.h>\n\n',
+                 'double Q[{}][{}] = {{{}}};\n'.format(self.domain.n, self.domain.n, ','.join(str(q) for row in self.Q for q in row)),
+                 'double mu[{}] = {{{}}};\n'.format(self.domain.n, ','.join(str(m) for m in self.mu)),
+                 'double c = {};\n\n'.format(self.c),
+                 'double f(int n, double args[n]){\n',
+                 '   double nu = *(args + {});\n'.format(self.domain.n),
+                 '   int i,j;\n',
+                 '   double loss = c;\n',
+                 '   for (i=0; i<{}; i++){{\n'.format(self.domain.n),
+                 '     for (j=0; j<{}; j++){{\n'.format(self.domain.n),
+                 '       loss += Q[i][j]*(args[i]-mu[i])*(args[j]-mu[j]);\n',
+                 '       }\n',
+                 '     }\n',
+                 '   return pow(fabs(loss), {});\n'.format(p),
+                 '   }']  
+        ranges = [nbox.bounds for nbox in nboxes]
+        return ctypes_integrate(ccode, ranges)**(1/p)
+    
+    
 
 class CumulativeLoss(LossFunction):
     """ Class for cumulative loss function objects """
@@ -246,4 +340,19 @@ class CumulativeLoss(LossFunction):
         """ Computes the a very crude upper bound of the oveall maximum based on the 
             maxima of the individual loss functions """
         return np.sum(np.array([lossfunc.max() for lossfunc in self.lossfuncs]))
+    
+    
+def ctypes_integrate(ccode, ranges):
+    with open('libs/tmpintlib.c', 'w') as file:
+        file.writelines(ccode)
+    call(['gcc', '-shared', '-o', 'libs/tmpintlib.dylib', '-fPIC', 'libs/tmpintlib.c'])
+    lib = ctypes.CDLL('libs/tmpintlib.dylib')
+    lib.f.restype = ctypes.c_double
+    lib.f.argtypes = (ctypes.c_int, ctypes.c_double)
+    try:
+        return np.sum([nquad(lib.f, rng)[0] for rng in ranges])
+    finally: 
+        dlclose(lib._handle) # this is to release the lib, so we can import the new version
+        os.remove('libs/tmpintlib.c') # clean up
+        os.remove('libs/tmpintlib.dylib') # clean up
     
