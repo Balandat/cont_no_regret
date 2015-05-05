@@ -406,7 +406,13 @@ def generate_ccode(dom, potential, eta, Loss):
                      '     return exp(z);}\n',
                      '   }']
         return header + pNorm_pot 
-    
-    
-    
-    
+    elif isinstance(potential, LogtasticPotential):
+        Huber_pot = ['   double z = -eta*(loss + nu);\n',
+                     '   if(z<0){\n',
+                     '     return 0.0;}\n',
+                     '   elseif(z<{}){{\n'.format(Loss.delta),
+                     '     return 0.5*pow(z,2);}\n',
+                     '   else{\n',
+                     '     return {}*(z - 0.5*{});}}\n'.format(Loss.delta),
+                     '   }']
+        return header + Huber_pot
