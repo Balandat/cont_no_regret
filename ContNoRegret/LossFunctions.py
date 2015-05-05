@@ -100,6 +100,7 @@ class AffineLossFunction(LossFunction):
             where a is a vector in R^n and b is a scalar. """
         self.domain = domain
         self.a, self.b = np.array(a), b
+        self.desc = 'Affine'
 
     def val(self, points):
         return np.dot(points, self.a) + self.b
@@ -144,6 +145,7 @@ class PolynomialLossFunction(LossFunction):
         self.coeffs, self.exponents = coeffs, exponents
         self.m = len(coeffs)
         self.polydict = {exps:coeff for coeff,exps in zip(coeffs,exponents)}
+        self.desc = 'Polynomial'
 
     def set_bounds(self, bounds):
         """ Allows to add lower and upper bounds to the function. Helpful for
@@ -170,10 +172,11 @@ class PolynomialLossFunction(LossFunction):
     
 class QuadraticLossFunction(LossFunction):
     """ Loss given by l(s) = 0.5 (s-mu)'Q(s-mu) + c, with Q>0 and c>= 0. 
-        This assumes that mu is in the domain! """ 
+        This assumes that mu is inside the domain! """ 
     
     def __init__(self, domain, mu, Q, c):
         self.domain, self.mu, self.Q, self.c = domain, mu, Q, c
+        self.desc = 'Quadratic'
         # implement computation of Lipschitz constant. Since gradient is 
         # linear, we can just look at the norm on the vertices
 #         self.L = self.computeL()
@@ -191,6 +194,14 @@ class QuadraticLossFunction(LossFunction):
     def Hessian(self, points): 
         return np.array([self.Q,]*points.shape[0])
     
+    def __add__(self, quadloss):
+        Qtilde = self.Q + quadloss.Q
+        btilde = - np.dot(self.mu, self.Q) - np.dot(quadloss.mu, quadloss.Q)
+        mutilde = -np.linalg.solve(Qtilde, btilde)
+        ctilde = 0.5*(2*self.c + np.dot(self.mu, np.dot(self.Q, self.mu))
+                      + 2*quadloss.c + np.dot(quadloss.mu, np.dot(quadloss.Q, quadloss.mu))
+                      + np.dot(btilde, mutilde))
+        return QuadraticLossFunction(self.domain, mutilde, Qtilde, ctilde)
 
 
 class CumulativeLoss(LossFunction):

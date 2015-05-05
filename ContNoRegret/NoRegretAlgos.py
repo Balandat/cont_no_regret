@@ -20,14 +20,14 @@ class ContNoRegretProblem(object):
     """ Basic class describing a Continuous No-Regret problem. This implementation for now
         assumes that the loss functions have "distr" class variable that is a Distribution object """
     
-    def __init__(self, domain, lossfuncs, Lbnd, M):
+    def __init__(self, domain, lossfuncs, Lbnd, M, desc='nodesc'):
         """ Constructor for the basic problem class. Here lossfuncs is a 
             list of loss LossFunction objects. """
         self.domain, self.Lbnd, self.M = domain, Lbnd, M
         self.lossfuncs = lossfuncs
         self.T = len(lossfuncs)
         self.optaction, self.optval = None, None
-        self.desc = 'Generic'
+        self.desc = desc
             
     def compute_regrets(self, losses):    
         """ Computes the regrets (for each time step) for the given array of loss sequences """
@@ -61,7 +61,7 @@ class ContNoRegretProblem(object):
         """ Plots the results of a simulation of algorithm """
         raise NotImplementedError
 
-    def run_simulation(self, N, algo='hedge', Ngrid=100000, **kwargs):
+    def run_simulation(self, N, algo, Ngrid=100000, label='nolabel', **kwargs):
         """ Runs the no-regret algorithm for different parameters and returns the
             results as a 'Result' object. Accepts optimal constant rates in the 
             dictionary 'etaopts', constant rates in the array-like 'etas', and 
@@ -73,7 +73,7 @@ class ContNoRegretProblem(object):
             for T,eta in kwargs['etaopts'].items():
                 print('Simulating eta={}'.format(eta))
                 regrets = self.simulate(N, etas=eta*np.ones(self.T), algo=algo, Ngrid=Ngrid, **kwargs)[2]
-                parse_regrets(regs_etaopts, regrets, self, eta, 0)
+                parse_regrets(regs_etaopts, regrets, self, eta, 0, algo)
                 result_args['regs_etaopts'] = regs_etaopts
         else:
             regs_etaopts = None
@@ -83,7 +83,7 @@ class ContNoRegretProblem(object):
             for eta in kwargs['etas']:
                 print('Simulating eta={}'.format(eta))
                 regrets = self.simulate(N, etas=eta*np.ones(self.T), algo=algo, Ngrid=Ngrid, **kwargs)[2]
-                parse_regrets(regs_etas, regrets, self, eta, 0)
+                parse_regrets(regs_etas, regrets, self, eta, 0, algo)
                 result_args['etas'] = kwargs['etas']
                 result_args['regs_etas'] = regs_etas
         else:
@@ -94,17 +94,17 @@ class ContNoRegretProblem(object):
             for alpha,theta in zip(kwargs['alphas'], kwargs['thetas']): # run for Nloss different sequences of loss functions
                 print('Simulating alpha={}, theta={}'.format(alpha, theta))
                 regrets = self.simulate(N, etas=theta*(1+np.arange(self.T))**(-alpha), algo=algo, Ngrid=Ngrid, **kwargs)[2]
-                parse_regrets(regs_alphas, regrets, self, theta, alpha)
+                parse_regrets(regs_alphas, regrets, self, theta, alpha, algo)
                 result_args['alphas'] = kwargs['alphas']
                 result_args['thetas'] = kwargs['thetas']
                 result_args['regs_alphas'] = regs_alphas
         else:
             regs_alphas = None
         # now return the results as a Results object
-        return Results(self, algo=algo, desc=self.desc, **result_args)
+        return Results(self, label=label, **result_args)
     
     
-    def simulate(self, N, etas='opt', algo='hedge', Ngrid=100000, **kwargs):
+    def simulate(self, N, etas='opt', algo='DA', Ngrid=100000, **kwargs):
         """ Simulates the result of running the No-Regret algorithm (N times).
             Returns a list of sequences of decisions and associated losses, one for each run. 
             The grid is used for computing both the regret and the actions! """
@@ -131,7 +131,8 @@ class ContNoRegretProblem(object):
         gridpoints = self.domain.grid(Ngrid)
         approxL = np.zeros(gridpoints.shape[0])
         for t, lossfunc in enumerate(self.lossfuncs): 
-            print(t)
+            if t % 25 == 0:
+                print(str(kwargs['pid']) + ': ', t)
             if algo == 'hedge':
                 etaL = etas[t]*approxL
                 # to ensure numerical stability, we normalize the weights (since we will compute the exponential,
@@ -218,10 +219,13 @@ class ContNoRegretProblem(object):
                 if t == 0:
                     if isinstance(lossfunc, AffineLossFunction):
                         cumLoss = AffineLossFunction(self.domain, np.zeros(self.domain.n), 0)
+                    elif isinstance(lossfunc, QuadraticLossFunction):
+                        cumLoss = QuadraticLossFunction(self.domain, np.zeros(self.domain.n),
+                                                        np.zeros(self.domain.n, self.domain.n), 0)
                     elif isinstance(lossfunc, PolynomialLossFunction):
-                        cumLoss = AffineLossFunction(self.domain, np.zeros(self.domain.n), 0)
+                        cumLoss = PolynomialLossFunction(self.domain, [0], [0]*self.domain.n)
                     else:
-                        raise Exception('For now DualAveraging only allows affine or polynomial loss functions')
+                        raise Exception('For now DualAveraging allows only Affine, Quadratic or Polynomial loss functions')
                     cumLoss.set_bounds([0, 0])
                     # compute  warm-starting the intervals of root-finder
                     nustar = -1/etas[t]*pot.phi_inv(1/self.domain.volume)
@@ -229,8 +233,9 @@ class ContNoRegretProblem(object):
                 else:
                     # create a spline approximation of the integrand
                     cumLoss = cumLoss + lossfunc
-                    nustar = compute_nustar(self.domain, pot, etas[t], cumLoss, nustar)
-                    weights = pot.phi(-etas[t]*(approxL + nustar))
+                    nustar = compute_nustar(self.domain, pot, etas[t], cumLoss, nustar, id=kwargs['pid'])
+                    weights = np.maximum(pot.phi(-etas[t]*(approxL + nustar)), 0)
+#                     print(np.max(weights)/np.average(weights))
                     action = gridpoints[np.random.choice(weights.shape[0], size=N, p=weights/np.sum(weights))]
             # now store the actions, losses, etc.
             actions.append(action)
@@ -374,8 +379,7 @@ class Results(object):
         self.etaopts, self.regs_etaopts = kwargs.get('etaopts'), kwargs.get('regs_etaopts')
         self.etas, self.regs_etas = kwargs.get('etas'), kwargs.get('regs_etas')
         self.alphas, self.thetas, self.regs_alphas = kwargs.get('alphas'), kwargs.get('thetas'), kwargs.get('regs_alphas')
-        self.algo = kwargs.get('algo')
-        self.desc = kwargs.get('desc')
+        self.label = kwargs.get('label')
             
     def estimate_loglog_slopes(self, N=1000):
         """ Estimates slope, intercept and r_value of the asymptotic log-log plot
@@ -383,14 +387,14 @@ class Results(object):
         slopes, slopes_bnd = {}, {}
         if self.etaopts:
             slopes['etaopts'] = self.loglog_slopes(self.regs_etaopts['tsavg'], N)
-            slopes_bnd['etaopts'] = self.loglog_slopes(self.regs_etaopts['tsavgbnd'], N)
+#             slopes_bnd['etaopts'] = self.loglog_slopes(self.regs_etaopts['tsavgbnd'], N)
         if self.etas:   
             slopes['etas'] = self.loglog_slopes(self.regs_etas['tsavg'], N)
-            slopes_bnd['etas'] = self.loglog_slopes(self.regs_etas['tsavgbnd'], N)
+#             slopes_bnd['etas'] = self.loglog_slopes(self.regs_etas['tsavgbnd'], N)
         if self.alphas:
             slopes['alphas'] = self.loglog_slopes(self.regs_alphas['tsavg'], N)
-            slopes_bnd['alphas'] = self.loglog_slopes(self.regs_alphas['tsavgbnd'], N)
-        return slopes, slopes_bnd
+#             slopes_bnd['alphas'] = self.loglog_slopes(self.regs_alphas['tsavgbnd'], N)
+        return slopes #, slopes_bnd
         
     def loglog_slopes(self, regrets, N): 
         slopes = []

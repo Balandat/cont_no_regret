@@ -12,7 +12,7 @@ import os
 from subprocess import call
 from scipy.optimize import brentq
 from scipy.integrate import nquad
-from .LossFunctions import PolynomialLossFunction, AffineLossFunction
+from .LossFunctions import PolynomialLossFunction, AffineLossFunction, QuadraticLossFunction
 import ContNoRegret
 
 
@@ -44,9 +44,9 @@ class OmegaPotential(object):
 class ExponentialPotential(OmegaPotential):
     """ The exponential potential, which results in Entropy Dual Averaging """
     
-    def __init__(self):
+    def __init__(self, desc='ExpPot'):
         """ Constructor """
-        pass
+        self.desc = desc
         
     def phi(self, u):
         """ Returns phi(u), the value of the zero-potential at the points u"""
@@ -73,9 +73,9 @@ class ExponentialPotential(OmegaPotential):
 class IdentityPotential(OmegaPotential):
     """ The identity potential Phi(x) = x, which results in the Euclidean Projection  """
     
-    def __init__(self):
+    def __init__(self, desc='IdPot'):
         """ Constructor """
-        pass
+        self.desc = desc
         
     def phi(self, u):
         """ Returns phi(u), the value of the zero-potential at the points u"""
@@ -102,11 +102,12 @@ class IdentityPotential(OmegaPotential):
 class pNormPotential(OmegaPotential):
     """ The potential phi(u) = sgn(u)*|u|**(1/(p-1)) """
     
-    def __init__(self, p):
+    def __init__(self, p, desc='pNormPot'):
         """ Constructor """
         if (p<=1) or (p>2):
             raise Exception('Need 1 < p <=2 !') 
         self.p = p
+        self.desc = desc + ',' + r'$p={{{}}}$'.format(p)
         
     def phi(self, u):
         """ Returns phi(u), the value of the pNorm-potential at the points u"""
@@ -134,7 +135,7 @@ class CompositeOmegaPotential(OmegaPotential):
     """ A composite omega potential formed by stitching together a
         fractional and a quadratic function """
     
-    def __init__(self, gamma=2):
+    def __init__(self, gamma=2, desc='CompPot'):
         """ Constructor """
         self.gamma = gamma
         self.c = (gamma-1)**(-1)
@@ -142,6 +143,7 @@ class CompositeOmegaPotential(OmegaPotential):
         a1 = gamma - 2*self.c*a2
         a0 = 1 - self.c*a1 - self.c**2*a2
         self.a = np.array([a0, a1, a2])
+        self.desc = desc + ',' + r'$\gamma={{{}}}$'.format(gamma)
         
     def phi(self, u):
         """ Returns phi(u), the value of the zero-potential at the points u"""
@@ -168,6 +170,71 @@ class CompositeOmegaPotential(OmegaPotential):
         """ Returns phi^{-1}'(u), the first derivative of the inverse 
             function of the zero-potential at the points u """
         return 1/self.phi_prime(self.phi_inv(u))
+    
+    
+class HuberPotential(OmegaPotential):
+    """ The potential given by the Huber loss function  """
+    
+    def __init__(self, delta, desc='HuberPot'):
+        """ Constructor """
+        self.delta = delta
+        self.desc = desc
+        
+    def phi(self, u):
+        """ Returns phi(u), the value of the Huber-potential at the points u"""
+        return (0.5*u**2*((u >= 0) & (u <= self.delta))
+                - 0.5*u**2*((u < 0) & (u >= -self.delta)) 
+                + self.delta*(u - 0.5*self.delta)*(u > self.delta)
+                + self.delta*(u + 0.5*self.delta)*(u < -self.delta))
+        
+    def phi_prime(self, u):
+        """ Returns phi'(u), the first derivative of the zero-potential at the points u """
+        return np.abs(u)*(np.abs(u) < self.delta) + self.delta*(np.abs(u) >= self.delta)
+ 
+    def phi_double_prime(self, u):
+        """ Returns phi''(u), the second derivative of the zero-potential at the points u """
+        return np.sign(u)*(np.abs(u) < self.delta)
+     
+    def phi_inv(self, u):
+        """ Returns phi^{-1}(u), the inverse function of the zero-potential at the points u """
+        return (np.sign(u)*np.sqrt(2*np.abs(u))*(np.abs(u) <= 0.5*self.delta**2)
+                + (np.sign(u)*self.delta/2 + u/self.delta))
+     
+    def phi_inv_prime(self, u):
+        """ Returns phi^{-1}'(u), the first derivative of the inverse 
+            function of the zero-potential at the points u """
+        raise 1/self.phi_prime(self.phi_inv(u))
+    
+    
+class LogtasticPotential(OmegaPotential):
+    """ The logtastic potential function  """
+    
+    def __init__(self, desc='LogPot'):
+        """ Constructor """
+        self.desc = desc
+        
+    def phi(self, u):
+        """ Returns phi(u), the value of the Huber-potential at the points u"""
+        return (u < 0)*np.exp(u) + (u >= 0)*(1 + np.log(1 + np.maximum(u, 0)))
+        
+    def phi_prime(self, u):
+        """ Returns phi'(u), the first derivative of the zero-potential at the points u """
+        return (u < 0)*np.exp(u) + (u >= 0)/(1 + np.maximum(u, 0))
+ 
+    def phi_double_prime(self, u):
+        """ Returns phi''(u), the second derivative of the zero-potential at the points u """
+        return (u < 0)*np.exp(u) - (u >= 0)/((1 + np.maximum(u, 0))**2)
+     
+    def phi_inv(self, u):
+        """ Returns phi^{-1}(u), the inverse function of the zero-potential at the points u """
+        return (u < 1)*np.log(u) + (u > 1)*(np.exp(u - 1) - 1)
+     
+    def phi_inv_prime(self, u):
+        """ Returns phi^{-1}'(u), the first derivative of the inverse 
+            function of the zero-potential at the points u """
+        return (u < 1)/u + (u > 1)*np.exp(u - 1)
+    
+    
     
     
 def nustar_quadratic(dom, gamma, eta, Q, mu, c, nu_prev=1000):
@@ -228,7 +295,7 @@ def nustar_generic(dom, potential, eta, Lspline, nu_prev=1000):
     return nustar
 
 
-def compute_nustar(dom, potential, eta, Loss, nu_prev=1000):
+def compute_nustar(dom, potential, eta, Loss, nu_prev=1000, id='0'):
     """ Determines the normalizing nustar for the dual-averaging update """
     if isinstance(dom, ContNoRegret.Domains.nBox):
         ranges = [dom.bounds]
@@ -236,25 +303,28 @@ def compute_nustar(dom, potential, eta, Loss, nu_prev=1000):
         ranges = [nbox.bounds for nbox in dom.nboxes]
     else:
         raise Exception('For now, domain must be an nBox or a UnionOfDisjointnBoxes!')        
-    with open('libs/tmplib.c', 'w') as file:
+    with open('libs/tmplib{}.c'.format(id), 'w') as file:
         file.writelines(generate_ccode(dom, potential, eta, Loss))
-    call(['gcc', '-shared', '-o', 'libs/tmplib.dylib', '-fPIC', 'libs/tmplib.c'])
-    lib = ctypes.CDLL('libs/tmplib.dylib')
+    call(['gcc', '-shared', '-o', 'libs/tmplib{}.dylib'.format(id), '-fPIC', 'libs/tmplib{}.c'.format(id)])
+    lib = ctypes.CDLL('libs/tmplib{}.dylib'.format(id))
     lib.phi.restype = ctypes.c_double
     lib.phi.argtypes = (ctypes.c_int, ctypes.c_double)
-    if isinstance(Loss, ExponentialPotential):
-        # in this case we don't have to search for nustar, we can find it (semi-)explicitly
-        integral = np.sum([nquad(lib.phi, rng, [0])[0] for rng in ranges])
-        nustar = np.log(integral)/eta
-    else:
-        f = lambda nu: np.sum([nquad(lib.phi, rng, [nu])[0] for rng in ranges]) - 1
-        lossbound = Loss.minmax()[1]
-        a = -lossbound - potential.phi_inv(1/dom.volume)/eta # this is (coarse) lower bound on nustar
-        nustar = brentq(f, a, nu_prev)
-    dlclose(lib._handle) # this is to release the lib, so we can import the new version
-    os.remove('libs/tmplib.c') # clean up
-    os.remove('libs/tmplib.dylib') # clean up
-    return nustar
+    try:
+        if isinstance(Loss, ExponentialPotential):
+            # in this case we don't have to search for nustar, we can find it (semi-)explicitly
+            integral = np.sum([nquad(lib.phi, rng, [0])[0] for rng in ranges])
+            nustar = np.log(integral)/eta
+        else:
+            f = lambda nu: np.sum([nquad(lib.phi, rng, [nu])[0] for rng in ranges]) - 1
+            lossbound = Loss.minmax()[1]
+            a = -lossbound - potential.phi_inv(1/dom.volume)/eta # this is (coarse) lower bound on nustar
+            nustar = brentq(f, a, nu_prev)
+        return nustar
+    finally: 
+        dlclose(lib._handle) # this is to release the lib, so we can import the new version
+        os.remove('libs/tmplib{}.c'.format(id)) # clean up
+        os.remove('libs/tmplib{}.dylib'.format(id)) # clean up
+    
 
 
 def generate_ccode(dom, potential, eta, Loss):
@@ -289,10 +359,30 @@ def generate_ccode(dom, potential, eta, Loss):
                 '     loss += c[i]*mon;\n',
                 '     }\n']
         header = header + poly
+    elif isinstance(Loss, QuadraticLossFunction):
+        quad = ['double Q[{}][{}] = {{{}}};\n'.format(dom.n, dom.n, ','.join(str(q) for row in Loss.Q for q in row)),
+                'double b[{}] = {{{}}};\n'.format(dom.n, ','.join(str(b) for b in Loss.b)),
+                'dobule c = {};\n\n'.format(Loss.c),
+                'double phi(int n, double args[n]){\n',
+                '   double nu = *(args + {});\n'.format(dom.n),
+                '   int i,j;\n',
+                '   double loss = c;\n',
+                '   for (i=0; i<{}; i++){{\n'.format(dom.n),
+                '     loss += b[i]*args[i];\n',
+                '     for (j=0; j<{}; j++){{\n'.format(dom.n),
+                '       loss += Q[i][j]*args[i]*args[j]);\n',
+                '       }\n',
+                '     }\n']  
+        header = header + quad        
     if isinstance(potential, ExponentialPotential):   
         return header + ['   return exp(-eta*(loss + nu));}']
     elif isinstance(potential, IdentityPotential):
-        return header + ['   return -eta*(loss + nu);}']
+        return header + ['   double z = -eta*(loss + nu);\n',
+                         '   if(z>0){\n',
+                         '     return z;}\n',
+                         '   else{\n',
+                         '     return 0.0;}\n',
+                         '   }']
     elif isinstance(potential, CompositeOmegaPotential):
         omega_pot = ['   double z = -eta*(loss + nu);\n',
                      '   if(z<{}){{\n'.format(potential.c),
@@ -303,13 +393,21 @@ def generate_ccode(dom, potential, eta, Loss):
         return header + omega_pot
     elif isinstance(potential, pNormPotential):
         pNorm_pot = ['   double z = -eta*(loss + nu);\n',
-                     '   double w = pow(fabs(z), {});\n'.format(1/(potential.p - 1)),
-                     '   if(z<0){\n',
-                     '     return -w;}\n',
+                     '   if(z>0){\n',
+                     '     return pow(z, {});}}\n'.format(1/(potential.p - 1)),
                      '   else{\n',
-                     '     return w;}\n',
+                     '     return 0.0;}\n',
+                     '   }']
+        return header + pNorm_pot
+    elif isinstance(potential, LogtasticPotential):
+        pNorm_pot = ['   double z = -eta*(loss + nu);\n',
+                     '   if(z>0){\n',
+                     '     return 1 + log(1 + z);}\n',
+                     '   else{\n',
+                     '     return exp(z);}\n',
                      '   }']
         return header + pNorm_pot 
+    
     
     
     
