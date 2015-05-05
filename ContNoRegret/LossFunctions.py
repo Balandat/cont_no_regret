@@ -10,7 +10,7 @@ from matplotlib import pyplot as plt
 from matplotlib import cm
 from scipy.linalg import eigh
 from ContNoRegret.Distributions import Gaussian
-from ContNoRegret.Domains import nBox   
+from ContNoRegret.Domains import nBox, UnionOfDisjointnBoxes
 
 
 class LossFunction(object):
@@ -108,11 +108,18 @@ class AffineLossFunction(LossFunction):
     def minmax(self):
         """ Compute the minimum and maximum of the loss function over the domain.
             This assumes that the domain is an nBox. """
-        if not isinstance(self.domain, nBox):
+        if isinstance(self.domain, nBox):
+            vertvals = self.val(self.domain.vertices())
+            self.set_bounds([np.min(vertvals), np.max(vertvals)])
+            return self.bounds
+            return vertvals
+        elif isinstance(self.domain, UnionOfDisjointnBoxes):
+            vertvals = np.array([self.val(nbox.vertices()) for nbox in self.domain.nboxes])
+            self.set_bounds([np.min(vertvals), np.max(vertvals)])
+            return self.bounds
+        else:
             raise Exception('Sorry, for now only nBoxes are supported for computing minimum and maximum of AffineLossFunctions')
-        vertvals = self.val(self.domain.vertices())
-        self.set_bounds([np.min(vertvals, axis=0), np.max(vertvals, axis=0)])
-        return self.bounds
+
     
     def grad(self, points): 
         return np.repeat(np.array(self.a, ndmin=2), points.shape[0], axis=0)

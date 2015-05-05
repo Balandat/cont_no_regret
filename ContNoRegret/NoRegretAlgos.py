@@ -221,7 +221,7 @@ class ContNoRegretProblem(object):
                         cumLoss = AffineLossFunction(self.domain, np.zeros(self.domain.n), 0)
                     elif isinstance(lossfunc, QuadraticLossFunction):
                         cumLoss = QuadraticLossFunction(self.domain, np.zeros(self.domain.n),
-                                                        np.zeros(self.domain.n, self.domain.n), 0)
+                                                        np.zeros((self.domain.n, self.domain.n)), 0)
                     elif isinstance(lossfunc, PolynomialLossFunction):
                         cumLoss = PolynomialLossFunction(self.domain, [0], [0]*self.domain.n)
                     else:

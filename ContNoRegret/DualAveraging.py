@@ -361,16 +361,15 @@ def generate_ccode(dom, potential, eta, Loss):
         header = header + poly
     elif isinstance(Loss, QuadraticLossFunction):
         quad = ['double Q[{}][{}] = {{{}}};\n'.format(dom.n, dom.n, ','.join(str(q) for row in Loss.Q for q in row)),
-                'double b[{}] = {{{}}};\n'.format(dom.n, ','.join(str(b) for b in Loss.b)),
-                'dobule c = {};\n\n'.format(Loss.c),
+                'double mu[{}] = {{{}}};\n'.format(dom.n, ','.join(str(m) for m in Loss.mu)),
+                'double c = {};\n\n'.format(Loss.c),
                 'double phi(int n, double args[n]){\n',
                 '   double nu = *(args + {});\n'.format(dom.n),
                 '   int i,j;\n',
                 '   double loss = c;\n',
                 '   for (i=0; i<{}; i++){{\n'.format(dom.n),
-                '     loss += b[i]*args[i];\n',
                 '     for (j=0; j<{}; j++){{\n'.format(dom.n),
-                '       loss += Q[i][j]*args[i]*args[j]);\n',
+                '       loss += Q[i][j]*(args[i]-mu[i])*(args[j]-mu[j]);\n',
                 '       }\n',
                 '     }\n']  
         header = header + quad        

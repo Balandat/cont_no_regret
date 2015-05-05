@@ -9,7 +9,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from scipy.linalg import orth, eigh
 from scipy.stats import uniform, gamma, linregress
-from .LossFunctions import AffineLossFunction
+from .LossFunctions import AffineLossFunction, QuadraticLossFunction
 
 
 def create_random_gammas(covs, Lbnd, dist=uniform()):
@@ -72,6 +72,7 @@ def create_random_Cs(covs, dist=uniform()):
         C[i] = np.random.uniform(low=pmax, high=1+pmax)
     return C
 
+
 def random_AffineLosses(dom, L, T, d=2):
     """ Creates T random L-Lipschitz AffineLossFunction over domain dom,
         and returns uniform bound M. For now sample the a-vector uniformly
@@ -106,25 +107,12 @@ def sample_Bnrd(n, r, d, N):
     return r*Bsqrt[:, np.newaxis]*S
 
 
-# def random_QuadraticLosses(dom, mus, L, M, T, d=2):
-#     """ Creates T random L-Lipschitz PolynomialLossFunctions of degree 2
-#         over the domain dom, uniformly bounded (in infinity norm) by M.
-#     """
-#     Qs = [create_random_Q(dom, mu, L, M, dist=uniform()) for mu in mus] 
-#     lossfuncs = [PolynomialLossFunction(dom, ]
-#     
-#     
-#     lossfuncs, Ms = [], []
-#     asamples = sample_Bnrd(dom.n, L, d, T)
-#     for a in asamples:
-#         lossfunc = AffineLossFunction(dom, a, 0)
-#         lossmin, lossmax = lossfunc.minmax()
-#         lossfunc.b = - lossmin
-#         lossfunc.set_bounds([0, lossmax-lossmin])
-#         lossfuncs.append(lossfunc)
-#         Ms.append(lossfunc.bounds[1]) 
-#     return lossfuncs
-
+def random_QuadraticLosses(dom, mus, L, M, dist=uniform()):
+    """ Creates T random L-Lipschitz PolynomialLossFunctions of degree 2
+        over the domain dom, uniformly bounded (in infinity norm) by M.
+    """
+    Qs = [create_random_Q(dom, mu, L, M, dist) for mu in mus] 
+    return [QuadraticLossFunction(dom, mu, Q, 0) for mu,Q in zip(mus, Qs)]
 
 
 # def compute_C(volS, n):

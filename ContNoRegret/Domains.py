@@ -240,6 +240,14 @@ class nBox(Domain):
         volume = np.array([self.bounds[i][1] - self.bounds[i][0] for i in range(self.n)]).prod()
         return diameter, volume, 1.0
     
+    def compute_Dmu(self, mu):
+        """ Computes D_mu, i.e. sup_{s in S} ||s-mu||_2^2 """
+        mu = np.array(mu, ndmin=2)
+        # first check that mu is contained in the domain
+        if not self.iselement(mu):
+            raise Exception('mu must be an element of the domain')
+        return np.max([np.linalg.norm(mu - vertex) for vertex in self.vertices()])
+    
     def bbox(self):
         """ An nBox is its own Bounding Box """
         return self
@@ -255,7 +263,7 @@ class nBox(Domain):
                 ix[:, n] = bnd[ix[:, n]]
             self.verts = ix
         return self.verts         
-            
+    
     def grid(self, N):
         """ Returns a uniform grid with at least N gridpoints """
         Z = (np.prod([self.bounds[i][1] - self.bounds[i][0] for i in range(self.n)]))**(1/self.n)
@@ -276,6 +284,7 @@ class UnionOfDisjointnBoxes(Domain):
         """ Constructor """
         self.nboxes = nboxes
         self.cvx = False
+        self.verts = None
         self.n = nboxes[0].n    
         self.diameter, self.volume, self.v = self.compute_parameters()
         
@@ -305,12 +314,27 @@ class UnionOfDisjointnBoxes(Domain):
         bounds = [(low, high) for low,high in zip(lower, upper)]
         return nBox(bounds)
     
+    
+    def compute_Dmu(self, mu):
+        """ Computes D_mu, i.e. sup_{s in S} ||s-mu||_2^2 """
+        mu = np.array(mu, ndmin=2)
+        # first check that mu is contained in the domain
+        if not self.iselement(mu):
+            raise Exception('mu must be an element of the domain')
+        return np.max([np.linalg.norm(mu - vertex) for vertex in self.vertices()])
+    
+    def vertices(self):
+        """ Returns the vertices of the UnionOfDisjointnBoxes """
+        if self.verts is None:
+            self.verts = np.vstack([nbox.vertices() for nbox in self.nboxes])
+        return self.verts   
+    
     def grid(self, N):
         """ Returns a uniform grid with at least N grid points """
         volumes = np.array([nbox.volume for nbox in self.nboxes])
         weights = volumes/np.sum(volumes)
         return np.vstack([nbox.grid(weight*N) for nbox,weight 
-                          in zip(self.rects, weights)])
+                          in zip(self.nboxes, weights)])
         
     def sample_uniform(self, N):
         """ Draws N samples uniformly from the union of disjoint rectangles """
