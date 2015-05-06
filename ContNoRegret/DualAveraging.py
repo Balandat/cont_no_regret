@@ -2,13 +2,12 @@
 Some functions for the dual averaging no-regret work
 
 @author: Maximilian Balandat
-@date: Apr 30, 2015
+@date: May 6, 2015
 '''
 
 import numpy as np
-import ctypes
+import os, ctypes
 from _ctypes import dlclose
-import os
 from subprocess import call
 from scipy.optimize import brentq
 from scipy.integrate import nquad
@@ -295,7 +294,7 @@ def nustar_generic(dom, potential, eta, Lspline, nu_prev=1000):
     return nustar
 
 
-def compute_nustar(dom, potential, eta, Loss, nu_prev=1000, pid='0', tmpfolder='libs/'):
+def compute_nustar(dom, potential, eta, Loss, nu_prev=None, pid='0', tmpfolder='libs/'):
     """ Determines the normalizing nustar for the dual-averaging update """
     if isinstance(dom, ContNoRegret.Domains.nBox):
         ranges = [dom.bounds]
@@ -316,9 +315,13 @@ def compute_nustar(dom, potential, eta, Loss, nu_prev=1000, pid='0', tmpfolder='
             nustar = np.log(integral)/eta
         else:
             f = lambda nu: np.sum([nquad(lib.phi, rng, [nu])[0] for rng in ranges]) - 1
+            if nu_prev is None:
+                nu_prev = 1000
+            # I could do something smarter here!
             lossbound = Loss.minmax()[1]
             a = -lossbound - potential.phi_inv(1/dom.volume)/eta # this is (coarse) lower bound on nustar
-            nustar = brentq(f, a, nu_prev)
+            b = nu_prev + 2 # this is to account for numerical inaccuracies with the function evaluation
+            nustar = brentq(f, a, b)
         return nustar
     finally: 
         dlclose(lib._handle) # this is to release the lib, so we can import the new version
