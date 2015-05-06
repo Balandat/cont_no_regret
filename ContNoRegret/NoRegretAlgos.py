@@ -233,7 +233,8 @@ class ContNoRegretProblem(object):
                 else:
                     # create a spline approximation of the integrand
                     cumLoss = cumLoss + lossfunc
-                    nustar = compute_nustar(self.domain, pot, etas[t], cumLoss, nustar, id=kwargs['pid'])
+                    nustar = compute_nustar(self.domain, pot, etas[t], cumLoss, nustar, 
+                                            pid=kwargs['pid'], tmpfolder=kwargs['tmpfolder'])
                     weights = np.maximum(pot.phi(-etas[t]*(approxL + nustar)), 0)
 #                     print(np.max(weights)/np.average(weights))
                     action = gridpoints[np.random.choice(weights.shape[0], size=N, p=weights/np.sum(weights))]
