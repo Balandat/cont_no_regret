@@ -6,9 +6,8 @@ A collection of LossFunction classes for the Continuous No Regret Problem.
 '''
 
 import numpy as np
-import ctypes
+import os, ctypes
 from _ctypes import dlclose
-import os
 from subprocess import call
 from matplotlib import pyplot as plt
 from matplotlib import cm
@@ -145,17 +144,20 @@ class AffineLossFunction(LossFunction):
             nboxes = self.domain.nboxes
         else:
             raise Exception('Sorry, so far only nBox and UnionOfDisjointnBoxes are supported!')
-        ccode = ['#include <math.h>\n\n',
-                 'double a[{}] = {{{}}};\n\n'.format(self.domain.n, ','.join(str(ai) for ai in self.a)),
-                 'double f(int n, double args[n]){\n',
-                 '   int i;\n',
-                 '   double loss = {};\n'.format(self.b),
-                 '   for (i=0; i<{}; i++){{\n'.format(self.domain.n),
-                 '     loss += a[i]*args[i];}\n',
-                 '   return pow(fabs(loss), {});\n'.format(p),
-                 '   }']  
-        ranges = [nbox.bounds for nbox in nboxes]
-        return ctypes_integrate(ccode, ranges)**(1/p)
+        if np.isinf(p):
+            return self.minmax()[1]
+        else:
+            ccode = ['#include <math.h>\n\n',
+                     'double a[{}] = {{{}}};\n\n'.format(self.domain.n, ','.join(str(ai) for ai in self.a)),
+                     'double f(int n, double args[n]){\n',
+                     '   int i;\n',
+                     '   double loss = {};\n'.format(self.b),
+                     '   for (i=0; i<{}; i++){{\n'.format(self.domain.n),
+                     '     loss += a[i]*args[i];}\n',
+                     '   return pow(fabs(loss), {});\n'.format(p),
+                     '   }']  
+            ranges = [nbox.bounds for nbox in nboxes]
+            return ctypes_integrate(ccode, ranges)**(1/p)
             
  
 class PolynomialLossFunction(LossFunction):
@@ -213,24 +215,27 @@ class PolynomialLossFunction(LossFunction):
             nboxes = self.domain.nboxes
         else:
             raise Exception('Sorry, so far only nBox and UnionOfDisjointnBoxes are supported!')
-        ccode = ['#include <math.h>\n\n',
-                 'double c[{}] = {{{}}};\n'.format(self.m, ','.join(str(coeff) for coeff in self.coeffs)),
-                 'double e[{}] = {{{}}};\n\n'.format(self.m*self.domain.n, ','.join(str(xpnt) for xpntgrp in self.exponents for xpnt in xpntgrp)),
-                 'double f(int n, double args[n]){\n',
-                 '   double nu = *(args + {});\n'.format(self.domain.n),
-                 '   int i,j;\n',
-                 '   double mon;\n',  
-                 '   double loss = 0.0;\n',
-                 '   for (i=0; i<{}; i++){{\n'.format(self.m),
-                 '     mon = 1.0;\n',
-                 '     for (j=0; j<{}; j++){{\n'.format(self.domain.n),
-                 '       mon = mon*pow(args[j], e[i*{}+j]);\n'.format(self.domain.n),
-                 '       }\n',
-                 '     loss += c[i]*mon;}\n',
-                 '   return pow(fabs(loss), {});\n'.format(p),
-                 '   }']  
-        ranges = [nbox.bounds for nbox in nboxes]
-        return ctypes_integrate(ccode, ranges)**(1/p)
+        if np.isinf(p):
+            raise NotImplementedError
+        else:
+            ccode = ['#include <math.h>\n\n',
+                     'double c[{}] = {{{}}};\n'.format(self.m, ','.join(str(coeff) for coeff in self.coeffs)),
+                     'double e[{}] = {{{}}};\n\n'.format(self.m*self.domain.n, ','.join(str(xpnt) for xpntgrp in self.exponents for xpnt in xpntgrp)),
+                     'double f(int n, double args[n]){\n',
+                     '   double nu = *(args + {});\n'.format(self.domain.n),
+                     '   int i,j;\n',
+                     '   double mon;\n',  
+                     '   double loss = 0.0;\n',
+                     '   for (i=0; i<{}; i++){{\n'.format(self.m),
+                     '     mon = 1.0;\n',
+                     '     for (j=0; j<{}; j++){{\n'.format(self.domain.n),
+                     '       mon = mon*pow(args[j], e[i*{}+j]);\n'.format(self.domain.n),
+                     '       }\n',
+                     '     loss += c[i]*mon;}\n',
+                     '   return pow(fabs(loss), {});\n'.format(p),
+                     '   }']  
+            ranges = [nbox.bounds for nbox in nboxes]
+            return ctypes_integrate(ccode, ranges)**(1/p)
         
     
 class QuadraticLossFunction(LossFunction):
@@ -285,23 +290,26 @@ class QuadraticLossFunction(LossFunction):
             nboxes = self.domain.nboxes
         else:
             raise Exception('Sorry, so far only nBox and UnionOfDisjointnBoxes are supported!')
-        ccode = ['#include <math.h>\n\n',
-                 'double Q[{}][{}] = {{{}}};\n'.format(self.domain.n, self.domain.n, ','.join(str(q) for row in self.Q for q in row)),
-                 'double mu[{}] = {{{}}};\n'.format(self.domain.n, ','.join(str(m) for m in self.mu)),
-                 'double c = {};\n\n'.format(self.c),
-                 'double f(int n, double args[n]){\n',
-                 '   double nu = *(args + {});\n'.format(self.domain.n),
-                 '   int i,j;\n',
-                 '   double loss = c;\n',
-                 '   for (i=0; i<{}; i++){{\n'.format(self.domain.n),
-                 '     for (j=0; j<{}; j++){{\n'.format(self.domain.n),
-                 '       loss += Q[i][j]*(args[i]-mu[i])*(args[j]-mu[j]);\n',
-                 '       }\n',
-                 '     }\n',
-                 '   return pow(fabs(loss), {});\n'.format(p),
-                 '   }']  
-        ranges = [nbox.bounds for nbox in nboxes]
-        return ctypes_integrate(ccode, ranges)**(1/p)
+        if np.isinf(p):
+            raise NotImplementedError
+        else:
+            ccode = ['#include <math.h>\n\n',
+                     'double Q[{}][{}] = {{{}}};\n'.format(self.domain.n, self.domain.n, ','.join(str(q) for row in self.Q for q in row)),
+                     'double mu[{}] = {{{}}};\n'.format(self.domain.n, ','.join(str(m) for m in self.mu)),
+                     'double c = {};\n\n'.format(self.c),
+                     'double f(int n, double args[n]){\n',
+                     '   double nu = *(args + {});\n'.format(self.domain.n),
+                     '   int i,j;\n',
+                     '   double loss = c;\n',
+                     '   for (i=0; i<{}; i++){{\n'.format(self.domain.n),
+                     '     for (j=0; j<{}; j++){{\n'.format(self.domain.n),
+                     '       loss += Q[i][j]*(args[i]-mu[i])*(args[j]-mu[j]);\n',
+                     '       }\n',
+                     '     }\n',
+                     '   return pow(fabs(loss), {});\n'.format(p),
+                     '   }']  
+            ranges = [nbox.bounds for nbox in nboxes]
+            return ctypes_integrate(ccode, ranges)**(1/p)
     
     
 
