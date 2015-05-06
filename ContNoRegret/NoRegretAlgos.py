@@ -227,13 +227,12 @@ class ContNoRegretProblem(object):
                     else:
                         raise Exception('For now DualAveraging allows only Affine, Quadratic or Polynomial loss functions')
                     cumLoss.set_bounds([0, 0])
-                    # compute  warm-starting the intervals of root-finder
+                    # compute nustar for warm-starting the intervals of root-finder
                     nustar = -1/etas[t]*pot.phi_inv(1/self.domain.volume)
                     action = self.domain.sample_uniform(N)
                 else:
-                    # create a spline approximation of the integrand
                     cumLoss = cumLoss + lossfunc
-                    nustar = compute_nustar(self.domain, pot, etas[t], cumLoss, nustar, 
+                    nustar = compute_nustar(self.domain, pot, etas[t], cumLoss, nu_prev=nustar, 
                                             pid=kwargs['pid'], tmpfolder=kwargs['tmpfolder'])
                     weights = np.maximum(pot.phi(-etas[t]*(approxL + nustar)), 0)
 #                     print(np.max(weights)/np.average(weights))
