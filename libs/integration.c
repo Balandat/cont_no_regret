@@ -107,3 +107,27 @@ double composite_poly(int N, double args[N])
 }
 
 
+double affine_pNorm(int N, double args[N])
+{ 
+/* Composite 0-potential with polynomial losses:
+		args[0] - args[n-1]         : (s_1,...,s_n)
+		args[n] - args[2n-1]        : (a_1,...,a_n)
+		args[2n] 					: b
+		args[2n+1]					: p
+		args[2n+2]					: n
+*/ 
+  int test = N-1;
+  double n = *(args + test);
+ /*  double loss = *(args + N);
+  int i;
+   for (i=0; i<(int)n; i++){
+      loss += *(args + (N+i))*(*(args + i));
+      }
+  return pow(fabs(loss), *(args + (2*N+1))); */
+  return pow(n,1.0);
+}  
+
+
+
+
+
