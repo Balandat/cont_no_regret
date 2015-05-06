@@ -1,119 +1,14 @@
 '''
-Collection of utilities to analyze Continuous No-Regret algorithms
+Collection of utilitiy functions to analyze Continuous No-Regret algorithms
 
-@author: Maximilian Balandat, Walid Krichene
-@date Dec 4, 2014
+@author: Maximilian Balandat
+@date May 6, 2015
 '''
 
 import numpy as np
-import pickle, os, datetime
+import pickle, os, datetime, shutil
 from matplotlib import pyplot as plt
-from scipy.linalg import orth, eigh
-from scipy.stats import uniform, gamma, linregress
-from .LossFunctions import AffineLossFunction, QuadraticLossFunction
-
-
-def create_random_gammas(covs, Lbnd, dist=uniform()):
-    """ Creates a random scaling factor gamma for each of the covariance matrices
-        in the array like 'covs', based on the Lipschitz bound L. Here dist is a 'frozen' 
-        scipy.stats probability distribution supported on [0,1] """
-    # compute upper bound for scaling
-    gammas = np.zeros(covs.shape[0])
-    for i,cov in enumerate(covs):
-        lambdamin = eigh(cov, eigvals=(0,0), eigvals_only=True)
-        gammamax = np.sqrt(lambdamin*np.e)*Lbnd
-        gammas[i] = gammamax*dist.rvs(1)
-    return gammas
-
-
-def create_random_Sigmas(n, N, L, M, dist=gamma(2, scale=2)):
-    """ Creates N random nxn covariance matrices s.t. the Lipschitz 
-        constants are uniformly bounded by Lbnd. Here dist is a 'frozen' 
-        scipy.stats probability distribution supported on R+"""
-    # compute lower bound for eigenvalues
-    lambdamin = ((2*np.pi)**n*np.e*L**2/M**2)**(-1.0/(n+1))
-    Sigmas = []
-    for i in range(N):
-        # create random orthonormal matrix
-        V = orth(np.random.uniform(size=(n,n)))   
-        # create n random eigenvalues from the distribution and shift them by lambdamin
-        lambdas = lambdamin + dist.rvs(n)
-        Sigma = np.zeros((n,n))
-        for lbda, v in zip(lambdas, V):
-            Sigma = Sigma + lbda*np.outer(v,v)
-        Sigmas.append(Sigma)
-    return np.array(Sigmas)
-
-
-def create_random_Q(domain, mu, L, M, dist=uniform()):
-    """ Creates random nxn covariance matrix s.t. the Lipschitz constant of the resulting 
-        quadratic function is bounded Lbnd. Here M is the uniform bound on the maximal loss 
-        and dist is a 'frozen' scipy.stats probability  distribution supported on [0,1] """
-    n = domain.n
-    # compute upper bound for eigenvalues
-    Dmu = domain.compute_Dmu(mu)
-    lambdamax = np.min((L/Dmu, 2*M/Dmu**2))
-    # create random orthonormal matrix
-    V = orth(np.random.uniform(size=(n,n)))   
-    # create n random eigenvalues from the distribution  dist and 
-    # scale them by lambdamax
-    lambdas = lambdamax*dist.rvs(n)
-    Q = np.zeros((n,n))
-    for lbda, v in zip(lambdas, V):
-        Q = Q + lbda*np.outer(v,v)
-    return Q
-
-def create_random_Cs(covs, dist=uniform()):
-    """ Creates a random offset C for each of the covariance matrices in the 
-        array-like 'covs'. Here dist is a 'frozen' scipy.stats probability 
-        distribution supported on [0,1] """
-    C = np.zeros(covs.shape[0])
-    for i,cov in enumerate(covs):
-        pmax = ((2*np.pi)**covs.shape[1]*np.linalg.det(cov))**(-0.5)
-        C[i] = np.random.uniform(low=pmax, high=1+pmax)
-    return C
-
-
-def random_AffineLosses(dom, L, T, d=2):
-    """ Creates T random L-Lipschitz AffineLossFunction over domain dom,
-        and returns uniform bound M. For now sample the a-vector uniformly
-        from the n-ball. Uses random samples of Beta-like distributions as 
-        described in:
-        'R. Harman and V. Lacko. On decompositional algorithms for uniform 
-        sampling from n-spheres and n-balls. Journal of Multivariate 
-        Analysis, 101(10):2297 – 2304, 2010.'
-    """
-    lossfuncs, Ms = [], []
-    asamples = sample_Bnrd(dom.n, L, d, T)
-    for a in asamples:
-        lossfunc = AffineLossFunction(dom, a, 0)
-        lossmin, lossmax = lossfunc.minmax()
-        lossfunc.b = - lossmin
-        lossfunc.set_bounds([0, lossmax-lossmin])
-        lossfuncs.append(lossfunc)
-        Ms.append(lossfunc.bounds[1]) 
-    return lossfuncs, np.max(Ms)
-
-def sample_Bnrd(n, r, d, N):
-    """ Draw N independent samples from the B_n(r,d) distribution
-        discussed in:
-        'R. Harman and V. Lacko. On decompositional algorithms for uniform 
-        sampling from n-spheres and n-balls. Journal of Multivariate 
-        Analysis, 101(10):2297 – 2304, 2010.'
-    """
-    Bsqrt = np.sqrt(np.random.beta(n/2, d/2, size=N))
-    X = np.random.randn(N, n)
-    normX = np.linalg.norm(X, 2, axis=1)
-    S = X/normX[:, np.newaxis]
-    return r*Bsqrt[:, np.newaxis]*S
-
-
-def random_QuadraticLosses(dom, mus, L, M, dist=uniform()):
-    """ Creates T random L-Lipschitz PolynomialLossFunctions of degree 2
-        over the domain dom, uniformly bounded (in infinity norm) by M.
-    """
-    Qs = [create_random_Q(dom, mu, L, M, dist) for mu in mus] 
-    return [QuadraticLossFunction(dom, mu, Q, 0) for mu,Q in zip(mus, Qs)]
+from scipy.stats import linregress 
 
 
 # def compute_C(volS, n):
@@ -158,7 +53,7 @@ def estimate_loglog_slopes(tsavg_regret, N):
     return np.array(slopes), np.array(intercepts), np.array(r_values)
   
 
-def plot_results(results, offset=500, path=None, show=True):
+def plot_results(results, offset=500, path=None, show=True, timestamp=None):
         """ Plots and shows or saves (or both) the simulation results """
         # set up figures
         plt.figure(1)
@@ -241,8 +136,9 @@ def plot_results(results, offset=500, path=None, show=True):
         plt.yscale('log'), plt.xscale('log')
         plt.legend(loc='upper right', prop={'size':13}, frameon=False) 
         if path:
-            timenow = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M') 
-            directory = '{}{}/figures/'.format(path, timenow)
+            if timestamp is None:
+                timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M') 
+            directory = '{}{}/figures/'.format(path, timestamp)
             os.makedirs(directory, exist_ok=True) # this could probably use a safer implementation  
             filename = '{}{}_{}_'.format(directory, results[0].problem.desc, results[0].problem.lossfuncs[0].desc)
             plt.figure(1)
@@ -255,14 +151,16 @@ def plot_results(results, offset=500, path=None, show=True):
             plt.show()
             
 
-def save_results(results, path):
+def save_results(results, file, path, timestamp=None):
     """ Serializes a results object for persistent storage using the pickle module. """ 
-    timenow = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M') 
-    directory = '{}{}/'.format(path, timenow)
+    if timestamp is None:
+        timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M') 
+    directory = '{}{}/'.format(path, timestamp)
     os.makedirs(directory, exist_ok=True) # this could probably use a safer implementation  
-    filename = '{}{}_{}.piggl'.format(directory, results[0].problem.desc, results[0].problem.lossfuncs[0].desc)    
-    with open(filename, 'wb') as file:
-        pickle.dump(results, file, pickle.HIGHEST_PROTOCOL)
+    pigglname = '{}{}_{}.piggl'.format(directory, results[0].problem.desc, results[0].problem.lossfuncs[0].desc)    
+    with open(pigglname, 'wb') as f:
+        pickle.dump(results, f, pickle.HIGHEST_PROTOCOL)
+    shutil.copy(os.path.abspath(file), directory) # save a copy of the script for reference
 
             
 def parse_regrets(reg_results, regrets, prob, theta, alpha, algo):
