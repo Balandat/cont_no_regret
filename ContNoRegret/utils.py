@@ -6,6 +6,7 @@ Collection of utilities to analyze Continuous No-Regret algorithms
 '''
 
 import numpy as np
+import pickle, os, datetime
 from matplotlib import pyplot as plt
 from scipy.linalg import orth, eigh
 from scipy.stats import uniform, gamma, linregress
@@ -240,18 +241,30 @@ def plot_results(results, offset=500, path=None, show=True):
         plt.yscale('log'), plt.xscale('log')
         plt.legend(loc='upper right', prop={'size':13}, frameon=False) 
         if path:
-            descriptor = '{}_{}_'.format(results[0].problem.desc,
-                                         results[0].problem.lossfuncs[0].desc)
+            timenow = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M') 
+            directory = '{}{}/figures/'.format(path, timenow)
+            os.makedirs(directory, exist_ok=True) # this could probably use a safer implementation  
+            filename = '{}{}_{}_'.format(directory, results[0].problem.desc, results[0].problem.lossfuncs[0].desc)
             plt.figure(1)
-            plt.savefig(path + descriptor + 'cumloss.pdf', bbox_inches='tight', dpi=300)
+            plt.savefig(filename + 'cumloss.pdf', bbox_inches='tight', dpi=300)
             plt.figure(2)
-            plt.savefig(path + descriptor + 'tavgloss.pdf', bbox_inches='tight', dpi=300)
+            plt.savefig(filename + 'tavgloss.pdf', bbox_inches='tight', dpi=300)
             plt.figure(3)
-            plt.savefig(path + descriptor + 'loglogtavgloss.pdf', bbox_inches='tight', dpi=300)
+            plt.savefig(filename + 'loglogtavgloss.pdf', bbox_inches='tight', dpi=300)
         if show:
             plt.show()
             
 
+def save_results(results, path):
+    """ Serializes a results object for persistent storage using the pickle module. """ 
+    timenow = datetime.datetime.now().strftime('%Y-%m-%d-%H-%M') 
+    directory = '{}{}/'.format(path, timenow)
+    os.makedirs(directory, exist_ok=True) # this could probably use a safer implementation  
+    filename = '{}{}_{}.piggl'.format(directory, results[0].problem.desc, results[0].problem.lossfuncs[0].desc)    
+    with open(filename, 'wb') as file:
+        pickle.dump(results, file, pickle.HIGHEST_PROTOCOL)
+
+            
 def parse_regrets(reg_results, regrets, prob, theta, alpha, algo):
     """ Function that computes some aggregate information from the raw regret 
         samples in the list 'regrets' """ 
