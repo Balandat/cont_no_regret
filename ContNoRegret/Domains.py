@@ -255,14 +255,12 @@ class nBox(Domain):
     def vertices(self):
         """ Returns the vertices of the nBox """
         if self.verts is None:
-            bounds = np.asarray(self.bounds)
-            shape = [2]*self.n
-            ix = np.indices(shape, dtype=int)
-            ix = ix.reshape(self.n, -1).T
-            for n, bnd in enumerate(bounds):
-                ix[:, n] = bnd[ix[:, n]]
-            self.verts = ix
-        return self.verts         
+            bounds = [np.asarray(bnd) for bnd in self.bounds]
+            shape = (len(arr) for arr in bounds)
+            idxs = np.indices(shape, dtype=int)
+            idxs = idxs.reshape(len(bounds), -1).T
+            self.verts = np.array([bnd[idxs[:, n]] for n,bnd in enumerate(bounds)]).T
+        return self.verts    
     
     def grid(self, N):
         """ Returns a uniform grid with at least N gridpoints """
@@ -337,13 +335,82 @@ class UnionOfDisjointnBoxes(Domain):
                           in zip(self.nboxes, weights)])
         
     def sample_uniform(self, N):
-        """ Draws N samples uniformly from the union of disjoint rectangles """
+        """ Draws N samples uniformly from the union of disjoint nBoxes """
         volumes = [nbox.volume for nbox in self.nboxes]
         weights = volumes/np.sum(volumes)
         select = np.random.choice(np.arange(len(volumes)), p=weights, size=N)
         samples = np.array([nbox.sample_uniform(N) for nbox in self.nboxes])
         return samples[select, np.arange(N)]
     
+    
+class DifferenceOfnBoxes(Domain):
+    """ Domain consisting of an nBox (the 'outer' box) from which 
+        multiple (disjoint) nBoxes are subtracted """
+    
+    def __init__(self, outer, inner):
+        """ Constructor """
+        violations = [((obnd[0]>ibnd[1]) | (obnd[1]<ibnd[1])) 
+                      for nbox in inner for obnd,ibnd in zip(outer.bounds, nbox.bounds)]
+        if np.any(violations):
+            raise Exception('All nBoxes in "inner" must be contained inside the outer nBox')
+        self.outer = outer
+        self.inner = inner
+        self.cvx = False
+        self.verts = None
+        self.n = outer.n    
+        self.diameter, self.volume, self.v = self.compute_parameters()
+        
+    def iselement(self, points):
+        """ Returns boolean array with length points.shape[0]. Element is
+            "True" if point is contained in domain and "False" otherwise """
+        in_inner = np.any([nbox.iselement(points) for nbox in self.inner], axis=0)
+        return self.outer.iselement(points) & np.logical_not(in_inner)
+   
+    def compute_parameters(self):
+        """ Computes diameter and volume of the domain as well as a lower bound of  
+            the uniform fatness constant v for later use (the bound on v is tight 
+            if any two rectangles are a strictly positive distance apart). """
+        # since the inner rectangles are disjoint, the volume is just the volume of
+        # the outer nBox minus the sum of the volumes of the inner nBoxes
+        # Unfortunately determining v is more difficult ...
+        diameter, volume_outer = self.outer.compute_parameters()[0:2]
+        volume = volume_outer - np.sum([nbox.volume for nbox in self.inner])
+        return diameter, volume, None
+    
+    def bbox(self):
+        """ Returns the bounding nBox, which is just the outer nBox. """ 
+        return self.outer    
+    
+    def compute_Dmu(self, mu):
+        """ Computes D_mu, i.e. sup_{s in S} ||s-mu||_2^2. Here it suffices to 
+            just check the vertices of the outer nBox. """
+        return self.outer.compute_Dmu(mu)
+    
+    def vertices(self):
+        """ Returns an array with the the vertices of the DifferenceOfnBoxes.
+            This is just the union of the set of vertices from the individual nBoxes. """
+        return np.vstack([self.outer.vertices(), np.vstack([nbox.vertices() for nbox in self.inner])])
+    
+    def grid(self, N):
+        """ Returns a uniform grid with at least N grid points. This implementation is
+            based on inflating the number of gridpoints for the grid on the outer nBox, 
+            and then returning only points that do not fall inside the inner nBoxes. """
+        full_grid = self.outer.grid(self.outer.volume/self.volume*N)
+        return full_grid[self.iselement(full_grid)]
+        
+    def sample_uniform(self, N):
+        """ Draws N samples uniformly from the DifferenceOfnBoxes. This can be achieved 
+            by simple rejection sampling, i.e. by sampling uniformly from the outer nBox 
+            and discarding samples tha fall inside the inner nBoxes. This is obviously 
+            not very efficient and should be avoided if an additive decomposition
+            of the DifferenceOfnBoxes is available. """
+        samples_outer = self.outer.sample_uniform(self.outer.volume/self.volume*N)
+        samples = samples_outer[self.iselement(samples_outer)]
+        while len(samples) < N:
+            newsamples = self.outer.sample_uniform(N/(N-len(samples))*self.outer.volume/self.volume*N)
+            samples = np.vstack((samples, newsamples[self.iselement(newsamples)]))
+        return samples[0:N]
+
     
 class UnitSimplex(Domain):
     """ The k-unit simplex (i.e. x_0,x_1,...,x_k s.t. x_i>=0 and sum(x_i)=1) """
