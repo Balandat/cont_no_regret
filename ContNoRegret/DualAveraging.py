@@ -295,7 +295,7 @@ def nustar_generic(dom, potential, eta, Lspline, nu_prev=1000):
     return nustar
 
 
-def compute_nustar(dom, potential, eta, Loss, nu_prev=1000, id='0'):
+def compute_nustar(dom, potential, eta, Loss, nu_prev=1000, pid='0', tmpfolder='libs/'):
     """ Determines the normalizing nustar for the dual-averaging update """
     if isinstance(dom, ContNoRegret.Domains.nBox):
         ranges = [dom.bounds]
@@ -303,10 +303,10 @@ def compute_nustar(dom, potential, eta, Loss, nu_prev=1000, id='0'):
         ranges = [nbox.bounds for nbox in dom.nboxes]
     else:
         raise Exception('For now, domain must be an nBox or a UnionOfDisjointnBoxes!')        
-    with open('libs/tmplib{}.c'.format(id), 'w') as file:
+    with open('{}/tmplib{}.c'.format(tmpfolder,pid), 'w') as file:
         file.writelines(generate_ccode(dom, potential, eta, Loss))
-    call(['gcc', '-shared', '-o', 'libs/tmplib{}.dylib'.format(id), '-fPIC', 'libs/tmplib{}.c'.format(id)])
-    lib = ctypes.CDLL('libs/tmplib{}.dylib'.format(id))
+    call(['gcc', '-shared', '-o', '{}tmplib{}.dylib'.format(tmpfolder,pid), '-fPIC', '{}tmplib{}.c'.format(tmpfolder,pid)])
+    lib = ctypes.CDLL('{}/tmplib{}.dylib'.format(tmpfolder,pid))
     lib.phi.restype = ctypes.c_double
     lib.phi.argtypes = (ctypes.c_int, ctypes.c_double)
     try:
@@ -322,9 +322,8 @@ def compute_nustar(dom, potential, eta, Loss, nu_prev=1000, id='0'):
         return nustar
     finally: 
         dlclose(lib._handle) # this is to release the lib, so we can import the new version
-        os.remove('libs/tmplib{}.c'.format(id)) # clean up
-        os.remove('libs/tmplib{}.dylib'.format(id)) # clean up
-    
+        os.remove('{}/tmplib{}.c'.format(tmpfolder,pid)) # clean up
+        os.remove('{}/tmplib{}.dylib'.format(tmpfolder,pid)) # clean up
 
 
 def generate_ccode(dom, potential, eta, Loss):
@@ -406,7 +405,7 @@ def generate_ccode(dom, potential, eta, Loss):
                      '     return exp(z);}\n',
                      '   }']
         return header + pNorm_pot 
-    elif isinstance(potential, LogtasticPotential):
+    elif isinstance(potential, HuberPotential):
         Huber_pot = ['   double z = -eta*(loss + nu);\n',
                      '   if(z<0){\n',
                      '     return 0.0;}\n',
