@@ -2,7 +2,7 @@
 Basic Algorithms for the Continuous No-Regret Problem.
 
 @author: Maximilian Balandat
-@date Apr 30, 2015
+@date May 7, 2015
 '''
 
 import numpy as np
@@ -226,13 +226,12 @@ class ContNoRegretProblem(object):
                         cumLoss = PolynomialLossFunction(self.domain, [0], [0]*self.domain.n)
                     else:
                         raise Exception('For now DualAveraging allows only Affine, Quadratic or Polynomial loss functions')
-                    cumLoss.set_bounds([0, 0])
                     # compute nustar for warm-starting the intervals of root-finder
                     nustar = -1/etas[t]*pot.phi_inv(1/self.domain.volume)
                     action = self.domain.sample_uniform(N)
                 else:
                     cumLoss = cumLoss + lossfunc
-                    nustar = compute_nustar(self.domain, pot, etas[t], cumLoss, nu_prev=nustar, 
+                    nustar = compute_nustar(self.domain, pot, etas[t], cumLoss, self.M, nustar, etas[t-1], t,
                                             pid=kwargs['pid'], tmpfolder=kwargs['tmpfolder'])
                     weights = np.maximum(pot.phi(-etas[t]*(approxL + nustar)), 0)
 #                     print(np.max(weights)/np.average(weights))
