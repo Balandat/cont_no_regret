@@ -1,8 +1,8 @@
 '''
 A collection of Domain classes for the Continuous No Regret Problem.  
 
-@author: Maximilian Balandat, Walid Krichene
-@date: Apr 27, 2015
+@author: Maximilian Balandat
+@date: May 6, 2015
 '''
 
 import numpy as np
