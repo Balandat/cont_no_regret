@@ -6,7 +6,7 @@ Collection of utilitiy functions to analyze Continuous No-Regret algorithms
 '''
 
 import numpy as np
-import pickle, os, datetime, shutil
+import pickle, os
 from matplotlib import pyplot as plt
 from scipy.stats import linregress 
 
@@ -53,7 +53,7 @@ def estimate_loglog_slopes(tsavg_regret, N):
     return np.array(slopes), np.array(intercepts), np.array(r_values)
   
 
-def plot_results(results, offset=500, path=None, show=True, timestamp=None):
+def plot_results(results, offset=500, directory=None, show=True):
         """ Plots and shows or saves (or both) the simulation results """
         # set up figures
         plt.figure(1)
@@ -71,14 +71,14 @@ def plot_results(results, offset=500, path=None, show=True, timestamp=None):
                 for i,(T,eta) in enumerate(result.etaopts.items()):
                     plt.figure(1)
                     lavg = plt.plot(result.regs_etaopts['savg'][i][0:T], linewidth=2.0, 
-                                    label=result.label+r' $\eta_{{opt}}(T={0:.1e}) = {1:.3f}$'.format(T, eta), rasterized=True)
+                                    label=result.label+' '+r' $\eta_{{opt}}(T={0:.1e}) = {1:.3f}$'.format(T, eta), rasterized=True)
                     plt.plot(np.arange(T,result.problem.T), result.regs_etaopts['savg'][i][T:], '--', 
                              color=lavg[0].get_color(), linewidth=2, rasterized=True)
                     plt.fill_between(np.arange(result.problem.T), result.regs_etaopts['perc_10'][i], 
                                      result.regs_etaopts['perc_90'][i], color=lavg[0].get_color(), alpha=0.2, rasterized=True)
                     plt.figure(2)
                     ltavg = plt.plot(np.arange(offset,T), result.regs_etaopts['tsavg'][i][offset:T], linewidth=2.0, 
-                                     label=result.label+r' $\eta_{{opt}}(T={0:.1e}) = {1:.3f}$'.format(T, eta), rasterized=True)
+                                     label=result.label+' '+r' $\eta_{{opt}}(T={0:.1e}) = {1:.3f}$'.format(T, eta), rasterized=True)
                     plt.plot(np.arange(T,result.problem.T), result.regs_etaopts['tsavg'][i][T:], '--', 
                              color=ltavg[0].get_color(), linewidth=2, rasterized=True)
                     plt.fill_between(np.arange(offset,result.problem.T), result.regs_etaopts['tavg_perc_10'][i][offset:], 
@@ -86,7 +86,7 @@ def plot_results(results, offset=500, path=None, show=True, timestamp=None):
                     plt.xlim((0, result.problem.T))
                     plt.figure(3)
                     llogtavg = plt.plot(np.arange(1,result.problem.T+1), result.regs_etaopts['tsavg'][i], 
-                                        linewidth=2.0, label=result.label+r' $\eta_{{opt}}(T={0:.1e}) = {1:.3f}$'.format(T, eta), rasterized=True)
+                                        linewidth=2.0, label=result.label+' '+r' $\eta_{{opt}}(T={0:.1e}) = {1:.3f}$'.format(T, eta), rasterized=True)
                     plt.fill_between(np.arange(1,result.problem.T+1), result.regs_etaopts['tavg_perc_10'][i], 
                                     result.regs_etaopts['tavg_perc_90'][i], color=llogtavg[0].get_color(), alpha=0.2, rasterized=True)
 #                     plt.plot(np.arange(1,result.problem.T+1), result.regs_etaopts['tsavgbnd'][i], '--', 
@@ -94,17 +94,17 @@ def plot_results(results, offset=500, path=None, show=True, timestamp=None):
             if result.etas:
                 for i,eta in enumerate(result.etas):
                     plt.figure(1)
-                    lavg = plt.plot(result.regs_etas['savg'][i], linewidth=2.0, label=result.label+r' $\eta = {0:.3f}$'.format(eta), rasterized=True)
+                    lavg = plt.plot(result.regs_etas['savg'][i], linewidth=2.0, label=result.label+' '+r' $\eta = {0:.3f}$'.format(eta), rasterized=True)
                     plt.fill_between(np.arange(result.problem.T), result.regs_etas['perc_10'][i], 
                                      result.regs_etas['perc_90'][i], color=lavg[0].get_color(), alpha=0.15, rasterized=True)
                     plt.figure(2)
                     ltavg = plt.plot(np.arange(offset,result.problem.T), result.regs_etas['tsavg'][i][offset:], 
-                                     linewidth=2.0, label=result.label+r'$\eta = {0:.3f}$'.format(eta), rasterized=True)
+                                     linewidth=2.0, label=result.label+' '+r'$\eta = {0:.3f}$'.format(eta), rasterized=True)
                     plt.fill_between(np.arange(offset,result.problem.T), result.regs_etas['tavg_perc_10'][i][offset:], 
                                      result.regs_etas['tavg_perc_90'][i][offset:], color=ltavg[0].get_color(), alpha=0.15, rasterized=True)
                     plt.xlim((0, result.problem.T))
                     plt.figure(3)
-                    llogtavg = plt.plot(np.arange(1,result.problem.T+1), result.regs_etas['tsavg'][i], linewidth=2.0, label=result.label+r' $\eta = {0:.3f}$'.format(eta), rasterized=True)
+                    llogtavg = plt.plot(np.arange(1,result.problem.T+1), result.regs_etas['tsavg'][i], linewidth=2.0, label=result.label+' '+r' $\eta = {0:.3f}$'.format(eta), rasterized=True)
                     plt.fill_between(np.arange(1,result.problem.T+1), result.regs_etas['tavg_perc_10'][i], 
                                      result.regs_etas['tavg_perc_90'][i], color=llogtavg[0].get_color(), alpha=0.15, rasterized=True) 
 #                     plt.plot(np.arange(1,result.problem.T+1), result.regs_etas['tsavgbnd'][i], '--', color=llogtavg[0].get_color(), linewidth=2, rasterized=True)     
@@ -112,18 +112,18 @@ def plot_results(results, offset=500, path=None, show=True, timestamp=None):
                 for i,alpha in enumerate(result.alphas):
                     plt.figure(1)
                     lavg = plt.plot(result.regs_alphas['savg'][i], linewidth=2.0,
-                             label=result.label+r' $\eta_t = {0} \cdot t^{{{1}}}$'.format(result.thetas[i], -alpha), rasterized=True)
+                             label=result.label+' '+r' $\eta_t = {0} \cdot t^{{{1}}}$'.format(result.thetas[i], -alpha), rasterized=True)
                     plt.fill_between(np.arange(result.problem.T), result.regs_alphas['perc_10'][i], 
                                      result.regs_alphas['perc_90'][i], color=lavg[0].get_color(), alpha=0.15, rasterized=True)
                     plt.figure(2)
                     ltavg = plt.plot(np.arange(result.problem.T)[offset:], result.regs_alphas['tsavg'][i][offset:], linewidth=2.0, 
-                             label=result.label+r' $\eta_t = {0} \cdot t^{{{1}}}$'.format(result.thetas[i], -alpha), rasterized=True)
+                             label=result.label+' '+r' $\eta_t = {0} \cdot t^{{{1}}}$'.format(result.thetas[i], -alpha), rasterized=True)
                     plt.fill_between(np.arange(offset,result.problem.T), result.regs_alphas['tavg_perc_10'][i][offset:], 
                                      result.regs_alphas['tavg_perc_90'][i][offset:], color=ltavg[0].get_color(), alpha=0.15, rasterized=True)
                     plt.xlim((0, result.problem.T)) 
                     plt.figure(3)
                     lltsavg = plt.plot(np.arange(1,result.problem.T+1), result.regs_alphas['tsavg'][i], linewidth=2.0, 
-                                         label=result.label+r' $\eta_t = {0} \cdot t^{{{1}}}$'.format(result.thetas[i], -alpha), rasterized=True)
+                                         label=result.label+' '+r' $\eta_t = {0} \cdot t^{{{1}}}$'.format(result.thetas[i], -alpha), rasterized=True)
                     plt.fill_between(np.arange(1,result.problem.T+1), result.regs_alphas['tavg_perc_10'][i], 
                                     result.regs_alphas['tavg_perc_90'][i], color=lltsavg[0].get_color(), alpha=0.15, rasterized=True)
 #                     plt.plot(np.arange(1,result.problem.T+1), result.regs_alphas['tsavgbnd'][i], '--', color=lltsavg[0].get_color(), linewidth=2.0, rasterized=True) 
@@ -135,12 +135,9 @@ def plot_results(results, offset=500, path=None, show=True, timestamp=None):
         plt.figure(3)
         plt.yscale('log'), plt.xscale('log')
         plt.legend(loc='upper right', prop={'size':13}, frameon=False) 
-        if path:
-            if timestamp is None:
-                timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M') 
-            directory = '{}{}/figures/'.format(path, timestamp)
-            os.makedirs(directory, exist_ok=True) # this could probably use a safer implementation  
-            filename = '{}{}_{}_'.format(directory, results[0].problem.desc, results[0].problem.lossfuncs[0].desc)
+        if directory:
+            os.makedirs(directory+'figures/', exist_ok=True) # this could probably use a safer implementation  
+            filename = '{}{}_{}_'.format(directory+'figures/', results[0].problem.desc, results[0].problem.lossfuncs[0].desc)
             plt.figure(1)
             plt.savefig(filename + 'cumloss.pdf', bbox_inches='tight', dpi=300)
             plt.figure(2)
@@ -151,16 +148,12 @@ def plot_results(results, offset=500, path=None, show=True, timestamp=None):
             plt.show()
             
 
-def save_results(results, file, path, timestamp=None):
+def save_results(results, directory):
     """ Serializes a results object for persistent storage using the pickle module. """ 
-    if timestamp is None:
-        timestamp = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M') 
-    directory = '{}{}/'.format(path, timestamp)
     os.makedirs(directory, exist_ok=True) # this could probably use a safer implementation  
     pigglname = '{}{}_{}.piggl'.format(directory, results[0].problem.desc, results[0].problem.lossfuncs[0].desc)    
     with open(pigglname, 'wb') as f:
         pickle.dump(results, f, pickle.HIGHEST_PROTOCOL)
-    shutil.copy(os.path.abspath(file), directory) # save a copy of the script for reference
 
             
 def parse_regrets(reg_results, regrets, prob, theta, alpha, algo):
