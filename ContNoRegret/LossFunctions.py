@@ -3,7 +3,7 @@ A collection of LossFunction classes and associated utility
 functions for the Continuous No Regret Problem.  
 
 @author: Maximilian Balandat
-@date: May 6, 2015
+@date: May 7, 2015
 '''
 
 import numpy as np
@@ -12,6 +12,7 @@ from _ctypes import dlclose
 from subprocess import call
 from matplotlib import pyplot as plt
 from matplotlib import cm
+from mpl_toolkits.mplot3d import axes3d
 from scipy.linalg import orth, eigh
 from scipy.integrate import nquad
 from scipy.stats import uniform, gamma
@@ -25,14 +26,7 @@ class LossFunction(object):
     def val(self, points):
         """ Returns values of the loss function at the specified points """
         raise NotImplementedError
-    
-    def set_bounds(self, bounds):
-        """ Allows to add lower and upper bounds to the function. Helpful for
-            finding a lower bound on nustar in the dual averaging algorithm.
-            bounds here is a tuple/list with bounds[0] and bounds[1] being the 
-            lower and upper bound on the function over the domain. """
-        self.bounds = bounds
-        
+           
     def val_grid(self, x, y):
         """ Computes the value of the loss on rectangular grid (for now assume 2dim) """
         points = np.array([[a,b] for a in x for b in y])
@@ -109,24 +103,29 @@ class AffineLossFunction(LossFunction):
         self.domain = domain
         self.a, self.b = np.array(a), b
         self.desc = 'Affine'
-        self.bounds = None
 
     def val(self, points):
         return np.dot(points, self.a) + self.b
     
-    def minmax(self):
+    def max(self):
+        """ Compute the maximum of the loss function over the domain. """
+        if (isinstance(self.domain, nBox) or isinstance(self.domain, UnionOfDisjointnBoxes) 
+            or isinstance(self.domain, DifferenceOfnBoxes)):
+            return np.max(self.val(self.domain.vertices()))
+        else:
+            raise Exception(('Sorry, for now only nBox, UnionOfDisjointnBoxes and DifferenceOfnBoxes '
+                             + 'are supported for computing minimum and maximum of AffineLossFunctions'))
+    
+    def min(self):
         """ Compute the minimum and maximum of the loss function over the domain.
             This assumes that the domain is an nBox. """
-        if self.bounds is None:
-            if (isinstance(self.domain, nBox) or isinstance(self.domain, UnionOfDisjointnBoxes) 
-                or isinstance(self.domain, DifferenceOfnBoxes)):
-                vertvals = self.val(self.domain.vertices())
-                self.set_bounds([np.min(vertvals), np.max(vertvals)])
-                return self.bounds
-            else:
-                raise Exception(('Sorry, for now only nBox, UnionOfDisjointnBoxes and DifferenceOfnBoxes '
-                                 + 'are supported for computing minimum and maximum of AffineLossFunctions'))
-        return self.bounds
+        if (isinstance(self.domain, nBox) or isinstance(self.domain, UnionOfDisjointnBoxes) 
+            or isinstance(self.domain, DifferenceOfnBoxes)):
+            return np.min(self.val(self.domain.vertices()))
+        else:
+            raise Exception(('Sorry, for now only nBox, UnionOfDisjointnBoxes and DifferenceOfnBoxes '
+                             + 'are supported for computing minimum and maximum of AffineLossFunctions'))
+
 
     def grad(self, points): 
         return np.repeat(np.array(self.a, ndmin=2), points.shape[0], axis=0)
@@ -148,7 +147,7 @@ class AffineLossFunction(LossFunction):
         else:
             raise Exception('Sorry, so far only nBox and UnionOfDisjointnBoxes are supported!')
         if np.isinf(p):
-            return self.minmax()[1]
+            return self.max()
         else:
             ccode = ['#include <math.h>\n\n',
                      'double a[{}] = {{{}}};\n\n'.format(self.domain.n, ','.join(str(ai) for ai in self.a)),
@@ -187,13 +186,6 @@ class PolynomialLossFunction(LossFunction):
         self.m = len(coeffs)
         self.polydict = {exps:coeff for coeff,exps in zip(coeffs,exponents)}
         self.desc = 'Polynomial'
-
-    def set_bounds(self, bounds):
-        """ Allows to add lower and upper bounds to the function. Helpful for
-            finding a lower bound on nustar in the dual averaging algorithm.
-            bounds here is a tuple/list with bounds[0] and bounds[1] being the 
-            lower and upper bound on the function over the domain. """
-        self.bounds = bounds
 
     def val(self, points):
         monoms = np.array([points**exps for exps in self.polydict.keys()]).prod(2)
@@ -254,7 +246,6 @@ class QuadraticLossFunction(LossFunction):
             raise Exception('Matrix Q must be square!')
         self.domain, self.mu, self.Q, self.c = domain, mu, Q, c
         self.desc = 'Quadratic'
-        self.bounds = None
         # implement computation of Lipschitz constant. Since gradient is 
         # linear, we can just look at the norm on the vertices
 #         self.L = self.computeL()
@@ -263,26 +254,50 @@ class QuadraticLossFunction(LossFunction):
         x = points - self.mu
         return 0.5*np.sum(np.dot(x,self.Q)*x, axis=1)  + self.c
     
-    def minmax(self):
-        """ Compute the minimum and maximum of the loss function over the domain. """
-        if self.bounds is None:
+    def max(self):
+        """ Compute the maximum of the loss function over the domain. """
+        try:
+            return self.bounds['max']
+        except (KeyError, AttributeError) as e:
             if (isinstance(self.domain, nBox) or isinstance(self.domain, UnionOfDisjointnBoxes)
                 or isinstance(self.domain, DifferenceOfnBoxes)):
                 if not isPosDef(self.Q):
-                    raise Exception('Sorry, for now only positive definite Q are supported.')
-                maxval = np.max(self.val(self.domain.vertices()))
-                if self.domain.iselement(np.array(self.mu, ndmin=2)):
-                    minval = self.c
+                    maxval = np.max(self.val(self.domain.grid(10000))) # this is a hack
                 else:
-                    raise NotImplementedError('mu outside domain')
-                self.set_bounds([minval, maxval])
+                    maxval = np.max(self.val(self.domain.vertices()))
+                try:
+                    self.bounds['max'] = maxval
+                except AttributeError:
+                    self.bounds = {'max':maxval}
+                return self.bounds['max']
             else:
                 raise Exception(('Sorry, for now only nBox, UnionOfDisjointnBoxes and DifferenceOfnBoxes '
                                  + 'are supported for computing minimum and maximum of AffineLossFunctions'))
-        return self.bounds
-       
+
     def min(self):
-        return self.c
+        """ Compute the minimum of the loss function over the domain. """
+        try:
+            return self.bounds['max']
+        except (KeyError, AttributeError) as e:
+            if (isinstance(self.domain, nBox) or isinstance(self.domain, UnionOfDisjointnBoxes)
+                or isinstance(self.domain, DifferenceOfnBoxes)):
+                if not isPosDef(self.Q):
+                    minval = np.min(self.val(self.domain.grid(10000))) # this is a hack
+                elif self.domain.iselement(np.array(self.mu, ndmin=2)):
+                    minval = self.c
+                else:
+                    minval = np.min(self.val(self.domain.grid(10000))) # this is another hack
+                    # this (modulo the domain splitting) is a convex problem, 
+                    # we could call an external solver to solve it...
+#                     raise NotImplementedError('mu outside domain')
+                try:
+                    self.bounds['min'] = minval
+                except AttributeError:
+                    self.bounds = {'min':minval}
+                return self.bounds['min']
+            else:
+                raise Exception(('Sorry, for now only nBox, UnionOfDisjointnBoxes and DifferenceOfnBoxes '
+                                     + 'are supported for computing minimum and maximum of AffineLossFunctions'))
     
     def grad(self, points): 
         return np.transpose(np.dot(self.Q, np.transpose(points)))
@@ -414,23 +429,42 @@ def create_random_Sigmas(n, N, L, M, dist=gamma(2, scale=2)):
     return np.array(Sigmas)
 
 
-def create_random_Q(domain, mu, L, M, dist=uniform()):
-    """ Creates random nxn covariance matrix s.t. the Lipschitz constant of the resulting 
-        quadratic function is bounded Lbnd. Here M is the uniform bound on the maximal loss 
-        and dist is a 'frozen' scipy.stats probability  distribution supported on [0,1] """
+# def create_random_Q(domain, mu, L, M, dist=uniform()):
+#     """ Creates random nxn covariance matrix s.t. the Lipschitz constant of the resulting 
+#         quadratic function is bounded Lbnd. Here M is the uniform bound on the maximal loss 
+#         and dist is a 'frozen' scipy.stats probability  distribution supported on [0,1] """
+#     n = domain.n
+#     # compute upper bound for eigenvalues
+#     Dmu = domain.compute_Dmu(mu)
+#     lambdamax = np.min((L/Dmu, 2*M/Dmu**2))
+#     # create random orthonormal matrix
+#     V = orth(np.random.uniform(size=(n,n)))   
+#     # create n random eigenvalues from the distribution  dist and 
+#     # scale them by lambdamax
+#     lambdas = lambdamax*dist.rvs(n)
+#     Q = np.zeros((n,n))
+#     for lbda, v in zip(lambdas, V):
+#         Q = Q + lbda*np.outer(v,v)
+#     return Q
+
+def create_random_Q(domain, mu, L, M, pd=True, dist=uniform()):
+    """ Creates random symmetric nxn matrix s.t. the Lipschitz constant of the resulting 
+        quadratic function is bounded by Lbnd. Here M is the uniform bound on the maximal loss 
+        and dist is a 'frozen' scipy.stats probability  distribution supported on [0,1].
+        If pd is True, then the matrix is pos. definite. """
     n = domain.n
     # compute upper bound for eigenvalues
     Dmu = domain.compute_Dmu(mu)
     lambdamax = np.min((L/Dmu, 2*M/Dmu**2))
     # create random orthonormal matrix
     V = orth(np.random.uniform(size=(n,n)))   
-    # create n random eigenvalues from the distribution  dist and 
-    # scale them by lambdamax
+    # create n random eigenvalues from the distribution dist, scale them by lambdamax
     lambdas = lambdamax*dist.rvs(n)
-    Q = np.zeros((n,n))
-    for lbda, v in zip(lambdas, V):
-        Q = Q + lbda*np.outer(v,v)
-    return Q
+    if not pd:
+        # randomly assign pos. and negative values to the evals
+        lambdas = lambdas*np.random.choice((-1,1), size=n)
+    return np.dot(V, np.dot(np.diag(lambdas), V.T))
+
 
 def create_random_Cs(covs, dist=uniform()):
     """ Creates a random offset C for each of the covariance matrices in the 
@@ -442,25 +476,19 @@ def create_random_Cs(covs, dist=uniform()):
         C[i] = np.random.uniform(low=pmax, high=1+pmax)
     return C
 
-
 def random_AffineLosses(dom, L, T, d=2):
     """ Creates T random L-Lipschitz AffineLossFunction over domain dom,
         and returns uniform bound M. For now sample the a-vector uniformly
         from the n-ball. Uses random samples of Beta-like distributions as 
-        described in:
-        'R. Harman and V. Lacko. On decompositional algorithms for uniform 
-        sampling from n-spheres and n-balls. Journal of Multivariate 
-        Analysis, 101(10):2297 – 2304, 2010.'
-    """
+        described in the funciton sample_Bnrd. """
     lossfuncs, Ms = [], []
     asamples = sample_Bnrd(dom.n, L, d, T)
     for a in asamples:
         lossfunc = AffineLossFunction(dom, a, 0)
-        lossmin, lossmax = lossfunc.minmax()
+        lossmin, lossmax = lossfunc.min(), lossfunc.max()
         lossfunc.b = - lossmin
-        lossfunc.set_bounds([0, lossmax-lossmin])
         lossfuncs.append(lossfunc)
-        Ms.append(lossfunc.bounds[1]) 
+        Ms.append(lossmax - lossmin) 
     return lossfuncs, np.max(Ms)
 
 def sample_Bnrd(n, r, d, N):
@@ -477,13 +505,18 @@ def sample_Bnrd(n, r, d, N):
     return r*Bsqrt[:, np.newaxis]*S
 
 
-def random_QuadraticLosses(dom, mus, L, M, dist=uniform()):
+def random_QuadraticLosses(dom, mus, L, M, pd=True, dist=uniform()):
     """ Creates T random L-Lipschitz PolynomialLossFunctions of degree 2
         over the domain dom, uniformly bounded (in infinity norm) by M.
     """
-    Qs = [create_random_Q(dom, mu, L, M, dist) for mu in mus] 
-    return [QuadraticLossFunction(dom, mu, Q, 0) for mu,Q in zip(mus, Qs)]
-    
+    lossfuncs, Ms = [], []
+    Qs = [create_random_Q(dom, mu, L, M, pd, dist) for mu in mus] 
+    for mu,Q in zip(mus,Qs):
+        lossfunc = QuadraticLossFunction(dom, mu, Q, 0)
+        lossfunc.c = -lossfunc.min()
+        lossfuncs.append(lossfunc)
+        Ms.append(lossfunc.max())
+    return lossfuncs, np.max(Ms)
         
 def isPosDef(Q):
     """ Checks whether the numpy array Q is positive definite """
