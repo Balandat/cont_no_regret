@@ -2,7 +2,7 @@
 Some functions for the dual averaging no-regret work
 
 @author: Maximilian Balandat
-@date: May 6, 2015
+@date: May 7, 2015
 '''
 
 import numpy as np
@@ -13,6 +13,7 @@ from scipy.optimize import brentq
 from scipy.integrate import nquad
 from .LossFunctions import PolynomialLossFunction, AffineLossFunction, QuadraticLossFunction
 import ContNoRegret
+import matplotlib.pyplot as plt
 
 
 class OmegaPotential(object):
@@ -49,24 +50,28 @@ class ExponentialPotential(OmegaPotential):
         
     def phi(self, u):
         """ Returns phi(u), the value of the zero-potential at the points u"""
-        return np.exp(u-1)
+        return np.exp(u)
         
     def phi_prime(self, u):
         """ Returns phi'(u), the first derivative of the zero-potential at the points u """
-        return self.phi(u)
+        return np.exp(u)
  
     def phi_double_prime(self, u):
         """ Returns phi''(u), the second derivative of the zero-potential at the points u """
-        return self.phi(u)
+        return np.exp(u)
      
     def phi_inv(self, u):
         """ Returns phi^{-1}(u), the inverse function of the zero-potential at the points u """
-        return 1 + np.log(u)
+        return np.log(u)
      
     def phi_inv_prime(self, u):
         """ Returns phi^{-1}'(u), the first derivative of the inverse 
             function of the zero-potential at the points u """
         return 1/u
+    
+    def isconvex(self):
+        """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
+        return True
    
    
 class IdentityPotential(OmegaPotential):
@@ -96,6 +101,10 @@ class IdentityPotential(OmegaPotential):
         """ Returns phi^{-1}'(u), the first derivative of the inverse 
             function of the zero-potential at the points u """
         return np.ones_like(u)
+    
+    def isconvex(self):
+        """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
+        return True
    
 
 class pNormPotential(OmegaPotential):
@@ -106,7 +115,7 @@ class pNormPotential(OmegaPotential):
         if (p<=1) or (p>2):
             raise Exception('Need 1 < p <=2 !') 
         self.p = p
-        self.desc = desc + ',' + r'$p={{{}}}$'.format(p)
+        self.desc = desc + ', ' + r'$p={{{}}}$'.format(p)
         
     def phi(self, u):
         """ Returns phi(u), the value of the pNorm-potential at the points u"""
@@ -129,6 +138,10 @@ class pNormPotential(OmegaPotential):
             function of the pNorm-potential at the points u """
         return (self.p - 1)*np.abs(u)**(self.p - 2)
 
+    def isconvex(self):
+        """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
+        return True 
+
 
 class CompositeOmegaPotential(OmegaPotential):
     """ A composite omega potential formed by stitching together a
@@ -142,7 +155,7 @@ class CompositeOmegaPotential(OmegaPotential):
         a1 = gamma - 2*self.c*a2
         a0 = 1 - self.c*a1 - self.c**2*a2
         self.a = np.array([a0, a1, a2])
-        self.desc = desc + ',' + r'$\gamma={{{}}}$'.format(gamma)
+        self.desc = desc + ', ' + r'$\gamma={{{}}}$'.format(gamma)
         
     def phi(self, u):
         """ Returns phi(u), the value of the zero-potential at the points u"""
@@ -170,6 +183,10 @@ class CompositeOmegaPotential(OmegaPotential):
             function of the zero-potential at the points u """
         return 1/self.phi_prime(self.phi_inv(u))
     
+    def isconvex(self):
+        """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
+        return True
+    
     
 class HuberPotential(OmegaPotential):
     """ The potential given by the Huber loss function  """
@@ -177,7 +194,7 @@ class HuberPotential(OmegaPotential):
     def __init__(self, delta, desc='HuberPot'):
         """ Constructor """
         self.delta = delta
-        self.desc = desc
+        self.desc = desc = desc + ', ' + r'$\delta={{{}}}$'.format(delta)
         
     def phi(self, u):
         """ Returns phi(u), the value of the Huber-potential at the points u"""
@@ -203,6 +220,10 @@ class HuberPotential(OmegaPotential):
         """ Returns phi^{-1}'(u), the first derivative of the inverse 
             function of the zero-potential at the points u """
         raise 1/self.phi_prime(self.phi_inv(u))
+    
+    def isconvex(self):
+        """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
+        return True
     
     
 class LogtasticPotential(OmegaPotential):
@@ -233,7 +254,9 @@ class LogtasticPotential(OmegaPotential):
             function of the zero-potential at the points u """
         return (u < 1)/u + (u > 1)*np.exp(u - 1)
     
-    
+    def isconvex(self):
+        """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
+        return False    
     
     
 def nustar_quadratic(dom, gamma, eta, Q, mu, c, nu_prev=1000):
@@ -294,35 +317,60 @@ def nustar_generic(dom, potential, eta, Lspline, nu_prev=1000):
     return nustar
 
 
-def compute_nustar(dom, potential, eta, Loss, nu_prev=None, pid='0', tmpfolder='libs/'):
-    """ Determines the normalizing nustar for the dual-averaging update """
-    if isinstance(dom, ContNoRegret.Domains.nBox):
-        ranges = [dom.bounds]
-    elif isinstance(dom, ContNoRegret.Domains.UnionOfDisjointnBoxes):
-        ranges = [nbox.bounds for nbox in dom.nboxes]
-    else:
-        raise Exception('For now, domain must be an nBox or a UnionOfDisjointnBoxes!')        
+def compute_nustar(dom, potential, eta, Loss, M, nu_prev, eta_prev, t, pid='0', tmpfolder='libs/'):
+    """ Determines the normalizing nustar for the dual-averaging update """      
     with open('{}/tmplib{}.c'.format(tmpfolder,pid), 'w') as file:
         file.writelines(generate_ccode(dom, potential, eta, Loss))
     call(['gcc', '-shared', '-o', '{}tmplib{}.dylib'.format(tmpfolder,pid), '-fPIC', '{}tmplib{}.c'.format(tmpfolder,pid)])
     lib = ctypes.CDLL('{}/tmplib{}.dylib'.format(tmpfolder,pid))
     lib.phi.restype = ctypes.c_double
     lib.phi.argtypes = (ctypes.c_int, ctypes.c_double)
-    try:
-        if isinstance(Loss, ExponentialPotential):
-            # in this case we don't have to search for nustar, we can find it (semi-)explicitly
-            integral = np.sum([nquad(lib.phi, rng, [0])[0] for rng in ranges])
-            nustar = np.log(integral)/eta
+    # compute the bounds for the root finding method for mu*
+    if potential.isconvex():
+        a = eta_prev/eta*nu_prev - M # this is a bound based on convexity of the potential
+        b = eta_prev/eta*nu_prev + (eta_prev/eta-1)*t*M
+    else:
+        a = - Loss.max() - np.max(potential.phi_inv(1/dom.volume)/eta, 0) # this is (coarse) lower bound on nustar
+        b = nu_prev + 50 # this is NOT CORRECT - a hack. Need to find conservative bound for nonconvex potentials
+    try: 
+        if isinstance(dom, ContNoRegret.Domains.nBox) or isinstance(dom, ContNoRegret.Domains.UnionOfDisjointnBoxes):
+            if isinstance(dom, ContNoRegret.Domains.nBox):
+                ranges = [dom.bounds]
+            elif isinstance(dom, ContNoRegret.Domains.UnionOfDisjointnBoxes):
+                ranges = [nbox.bounds for nbox in dom.nboxes]
+            if isinstance(potential, ExponentialPotential):
+                # in this case we don't have to search for nustar, we can find it (semi-)explicitly
+                integral = np.sum([nquad(lib.phi, rng, [0])[0] for rng in ranges])
+                nustar = np.log(integral)/eta
+            else:
+                f = lambda nu: np.sum([nquad(lib.phi, rng, [nu])[0] for rng in ranges]) - 1
+#                 print('Lmin={}, Lmax={}'.format(Loss.min(), Loss.max()))
+#                 print('a={0:.3f}. f(a)={1:.3f}, b={2:.3f}, f(b)={3:.3f}'.format(a, f(a), b, f(b)))
+#                 if (f(b)*f(a) > 0):
+#                     Loss.plot(dom.sample_uniform(1000))
+#                     xs = np.linspace(a-5, b+5, 50)
+#                     plt.plot(xs, np.array([f(x) for x in xs]))
+#                     plt.show()
+                try:
+#                     nustar = brentq(f, a-5000, b+5000)
+                    nustar = brentq(f, a, b)
+                except ValueError:
+                    print('WARINING: PROCESS {} HAS ENCOUNTERED f(a)!=f(b)!'.format(pid))
+#                 print('nustar={0:.3f}'.format(nustar))
+            return nustar
+        elif isinstance(dom, ContNoRegret.Domains.DifferenceOfnBoxes):
+            if isinstance(potential, ExponentialPotential):
+                # in this case we don't have to search for nustar, we can find it (semi-)explicitly
+                integral = (nquad(lib.phi, dom.outer.bounds, [0])[0] 
+                            - np.sum([nquad(lib.phi, nbox.bounds, [0])[0] for nbox in dom.inner]))
+                nustar = np.log(integral)/eta
+            else:
+                f = lambda nu: (nquad(lib.phi, dom.outer.bounds, [nu])[0] 
+                                - np.sum([nquad(lib.phi, nbox.bounds, [nu])[0] for nbox in dom.inner]) - 1)
+                nustar = brentq(f, a, b)
+            return nustar
         else:
-            f = lambda nu: np.sum([nquad(lib.phi, rng, [nu])[0] for rng in ranges]) - 1
-            if nu_prev is None:
-                nu_prev = 1000
-            # I could do something smarter here!
-            lossbound = Loss.minmax()[1]
-            a = -lossbound - potential.phi_inv(1/dom.volume)/eta # this is (coarse) lower bound on nustar
-            b = nu_prev + 2 # this is to account for numerical inaccuracies with the function evaluation
-            nustar = brentq(f, a, b)
-        return nustar
+            raise Exception('For now, domain must be an nBox or a UnionOfDisjointnBoxes!') 
     finally: 
         dlclose(lib._handle) # this is to release the lib, so we can import the new version
         os.remove('{}/tmplib{}.c'.format(tmpfolder,pid)) # clean up
