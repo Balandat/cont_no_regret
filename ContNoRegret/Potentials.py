@@ -65,7 +65,7 @@ class ExponentialPotential(OmegaPotential):
         """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
         return True
     
-    def genc_code(self):
+    def gen_ccode(self):
         """ Generates a c-code snippet used for fast numerical integration """
         return ['   return exp(-eta*(loss + nu));}']
    
@@ -257,7 +257,8 @@ class ExpPPotential(OmegaPotential):
         
 
 class PExpPotential(OmegaPotential):
-    """ A potential given by a composition of a p norm and an exponential """
+    """ A potential given by a composition of a p-norm and 
+        an exponential potential """
     
     def __init__(self, p, desc='PExpPot'):
         """ Constructor """
@@ -296,7 +297,7 @@ class PExpPotential(OmegaPotential):
         return ['   double z = -eta*(loss + nu);\n',
                 '   if(z>1){\n',
                 '     return exp((z-1)/{});}}\n'.format(self.p - 1),
-                '   elseif(z>0){\n',
+                '   else if(z>0){\n',
                 '     return pow(z, {});}}\n'.format(1/(self.p - 1)),
                 '   else{\n',
                 '     return 0.0;}\n',
