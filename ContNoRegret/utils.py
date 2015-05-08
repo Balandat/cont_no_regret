@@ -9,7 +9,7 @@ import numpy as np
 import pickle, os
 from matplotlib import pyplot as plt
 from scipy.stats import linregress 
-
+from .Domains import nBox
 
 # def compute_C(volS, n):
 #     """ Computes the constant C = vol(S)/vol(B_1), where B_1 is the unit ball in R^n """
@@ -168,6 +168,22 @@ def parse_regrets(reg_results, regrets, prob, theta, alpha, algo):
 #     reg_results['tsavgbnd'].append(regret_bounds(prob.domain, theta, alpha, 
 #                                           prob.Lbnd, prob.M, prob.T, algo=algo))
     return reg_results
+
+
+def circular_tour(domain, N):
+    """ Returns a sequence of N points that wander around in a circle
+        in the domain. Used for understanding various learning rates. """
+    if isinstance(domain, nBox):
+        if domain.n != 2:
+            raise Exception('For now circular_tour only works in dimension 2')
+        center = np.array([0.5*(bnd[0]+bnd[1]) for bnd in domain.bounds])
+        halfaxes = np.array([0.75*0.5*(bnd[1]-bnd[0]) for bnd in domain.bounds])
+        return np.array([center[0] + halfaxes[0]*np.cos(np.linspace(0,2*np.pi,N)), 
+                         center[1] + halfaxes[1]*np.sin(np.linspace(0,2*np.pi,N))]).T 
+    else:
+        raise Exception('For now circular_tour only works on nBoxes')
+        
+        
 
 
 def CNR_worker(prob, *args, **kwargs):
