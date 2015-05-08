@@ -14,6 +14,9 @@ from .DualAveraging import nustar_quadratic, nustar_generic, compute_nustar
 from scipy.stats import linregress
 from scipy.interpolate import RectBivariateSpline
 from cvxopt import solvers, matrix
+import matplotlib.pyplot as plt
+from matplotlib import cm
+from mpl_toolkits.mplot3d import axes3d
   
 
 class ContNoRegretProblem(object):
@@ -28,6 +31,8 @@ class ContNoRegretProblem(object):
         self.T = len(lossfuncs)
         self.optaction, self.optval = None, None
         self.desc = desc
+        self.data = []
+        self.pltpoints = self.domain.grid(2000)
             
     def compute_regrets(self, losses):    
         """ Computes the regrets (for each time step) for the given array of loss sequences """
@@ -234,8 +239,9 @@ class ContNoRegretProblem(object):
                     nustar = compute_nustar(self.domain, pot, etas[t], cumLoss, self.M, nustar, etas[t-1], t,
                                             pid=kwargs['pid'], tmpfolder=kwargs['tmpfolder'])
                     weights = np.maximum(pot.phi(-etas[t]*(approxL + nustar)), 0)
-#                     print(np.max(weights)/np.average(weights))
+                    # let us plot the probability distribution
                     action = gridpoints[np.random.choice(weights.shape[0], size=N, p=weights/np.sum(weights))]
+                    self.data.append(np.maximum(pot.phi(-etas[t]*(cumLoss.val(self.pltpoints) + nustar)), 0))
             # now store the actions, losses, etc.
             actions.append(action)
             loss = lossfunc.val(action)
