@@ -39,12 +39,15 @@ class LossFunction(object):
     def plot(self, points):
         """ Creates a 3D plot of the density via triangulation of
             the density value at the points """
+        if points.shape[1] != 2:
+            raise Exception('Can only plot functions in dimension 2.')
         pltpoints = points[self.domain.iselement(points)]
         vals = self.val(pltpoints)
         fig = plt.figure()
         ax = fig.gca(projection='3d')
-        ax.plot_trisurf(pltpoints[:,0], pltpoints[:,1], vals, cmap=cm.jet, linewidth=0.2)
-        ax.set_xlabel('$x$'), ax.set_ylabel('$y$'), ax.set_zlabel('loss$(x,y)$')
+        ax.plot_trisurf(pltpoints[:,0], pltpoints[:,1], vals, 
+                        cmap=cm.jet, linewidth=0.2)
+        ax.set_xlabel('$s_1$'), ax.set_ylabel('$s_2$'), ax.set_zlabel('l$(z)$')
         ax.set_title('Loss')
         plt.show()
         return fig   
@@ -63,34 +66,7 @@ class LossFunction(object):
         return self.domain.project(grad_step)
     
 
-
-class GaussianLossFunction(LossFunction):
-    """ Loss given by l(s) = M(1 - gamma*exp[-0.5*(s-x)^T Sigma^-1 (s-x)]) """ 
-    
-    def __init__(self, domain, mean, cov, M):
-        self.domain, self.M = domain, M
-        self.p = Gaussian(domain, mean, cov)
-        self.L = self.computeL()
-        self.Cnorm = 1/self.p.density(mean)
-    
-    def val(self, points):
-        return self.M*(1 - self.Cnorm*self.p.density(points))
-    
-    def min(self):
-        """ For now just returns 1-peak, need to do something smarter... """
-        return self.M*(1 - self.Cnorm*self.p.density(self.p.mean))
-    
-    def grad(self, points): 
-        return - self.M*self.Cnorm*self.p.grad_density(points)
-    
-    def Hessian(self, points): 
-        return - self.M*self.Cnorm*self.p.Hessian_density(points)
-    
-    def computeL(self):
-        """ Computes a Lipschitz constant for the loss function. """
-        lambdamin = eigh(self.p.cov, eigvals=(0,0), eigvals_only=True)
-        return self.M*((2*np.pi)**self.domain.n*np.e*np.linalg.det(self.p.cov)*lambdamin)**(-0.5)
-    
+   
 
 class AffineLossFunction(LossFunction):
     """ An affine loss function in n dimensions """ 
@@ -126,7 +102,6 @@ class AffineLossFunction(LossFunction):
             raise Exception(('Sorry, for now only nBox, UnionOfDisjointnBoxes and DifferenceOfnBoxes '
                              + 'are supported for computing minimum and maximum of AffineLossFunctions'))
 
-
     def grad(self, points): 
         return np.repeat(np.array(self.a, ndmin=2), points.shape[0], axis=0)
     
@@ -160,79 +135,19 @@ class AffineLossFunction(LossFunction):
                      '   }']  
             ranges = [nbox.bounds for nbox in nboxes]
             return ctypes_integrate(ccode, ranges)**(1/p)
-            
- 
-class PolynomialLossFunction(LossFunction):
-    """ A polynomial loss function in n dimensions of arbitrary order, 
-        represented in the basis of monomials """ 
     
-    def __init__(self, domain, coeffs, exponents):
-        """ Construct a PolynomialLossFunction that is the sum of M monomials.
-            coeffs is an M-dimensional array containing the coefficients of the
-            monomials, and exponents is a list of n-tuples of length M, with 
-            the i-th tuple containing the exponents of the n variables in the monomial. 
- 
-            For example, the polynomial l(x) = 3*x_1^3 + 2*x_1*x_3 + x2^2 + 2.5*x_2*x_3 + x_3^3
-            in dimension n=3 is constructed using
-                coeffs = [3, 2, 1, 2.5, 1] and
-                exponents = [(3,0,0), (1,0,1), (0,2,0), (0,1,1), (0,0,3)] 
-        """ 
-        if not len(coeffs) == len(exponents):
-            raise Exception('Size of coeffs must be size of exponents along first axis!')
-        if not len(exponents[0]) == domain.n:
-            raise Exception('Dimension of elements of coeffs must be dimension of domain!')
-        self.domain = domain
-        self.coeffs, self.exponents = coeffs, exponents
-        self.m = len(coeffs)
-        self.polydict = {exps:coeff for coeff,exps in zip(coeffs,exponents)}
-        self.desc = 'Polynomial'
-
-    def val(self, points):
-        monoms = np.array([points**exps for exps in self.polydict.keys()]).prod(2)
-        return np.sum([monom*coeff for monom,coeff in zip(monoms, self.polydict.values())], axis=0)
-    
-    def __add__(self, poly2):
-        """ Add two PolynomialLossFunction objects (assumes that both polynomials 
-            are defined over the same domain. """
-        newdict = self.polydict.copy()
-        for exps, coeff in poly2.polydict.items():
-            try:
-                newdict[exps] = newdict[exps] + coeff
-            except KeyError:
-                newdict[exps] = coeff
-        return PolynomialLossFunction(self.domain, newdict.values(), newdict.keys())
+    def gen_ccode(self):
+        return ['double a[{}] = {{{}}};\n'.format(self.domain.n, ','.join(str(a) for a in self.a)),
+                'double phi(int n, double args[n]){\n',
+                '   double nu = *(args + {});\n'.format(self.domain.n),
+                '   int i;\n',
+                '   double loss = {};\n'.format(self.b),
+                '   for (i=0; i<{}; i++){{\n'.format(self.domain.n),
+                '     loss += a[i]*(*(args + i));\n',
+                '     }\n']        
         
-    def norm(self, p):
-        """ Computes the p-Norm of the loss function over the domain """
-        if isinstance(self.domain, nBox):
-            nboxes = [self.domain]
-        elif isinstance(self.domain, UnionOfDisjointnBoxes):
-            nboxes = self.domain.nboxes
-        else:
-            raise Exception('Sorry, so far only nBox and UnionOfDisjointnBoxes are supported!')
-        if np.isinf(p):
-            raise NotImplementedError
-        else:
-            ccode = ['#include <math.h>\n\n',
-                     'double c[{}] = {{{}}};\n'.format(self.m, ','.join(str(coeff) for coeff in self.coeffs)),
-                     'double e[{}] = {{{}}};\n\n'.format(self.m*self.domain.n, ','.join(str(xpnt) for xpntgrp in self.exponents for xpnt in xpntgrp)),
-                     'double f(int n, double args[n]){\n',
-                     '   double nu = *(args + {});\n'.format(self.domain.n),
-                     '   int i,j;\n',
-                     '   double mon;\n',  
-                     '   double loss = 0.0;\n',
-                     '   for (i=0; i<{}; i++){{\n'.format(self.m),
-                     '     mon = 1.0;\n',
-                     '     for (j=0; j<{}; j++){{\n'.format(self.domain.n),
-                     '       mon = mon*pow(args[j], e[i*{}+j]);\n'.format(self.domain.n),
-                     '       }\n',
-                     '     loss += c[i]*mon;}\n',
-                     '   return pow(fabs(loss), {});\n'.format(p),
-                     '   }']  
-            ranges = [nbox.bounds for nbox in nboxes]
-            return ctypes_integrate(ccode, ranges)**(1/p)
         
-    
+        
 class QuadraticLossFunction(LossFunction):
     """ Loss given by l(s) = 0.5 (s-mu)'Q(s-mu) + c, with Q>0 and c>= 0. 
         This assumes that mu is inside the domain! """ 
@@ -343,44 +258,114 @@ class QuadraticLossFunction(LossFunction):
             ranges = [nbox.bounds for nbox in nboxes]
             return ctypes_integrate(ccode, ranges)**(1/p)
     
-    
+    def gen_ccode(self):
+        return ['double Q[{}][{}] = {{{}}};\n'.format(self.domain.n, self.domain.n, ','.join(str(q) for row in self.Q for q in row)),
+                'double mu[{}] = {{{}}};\n'.format(self.domain.n, ','.join(str(m) for m in self.mu)),
+                'double c = {};\n\n'.format(self.c),
+                'double phi(int n, double args[n]){\n',
+                '   double nu = *(args + {});\n'.format(self.domain.n),
+                '   int i,j;\n',
+                '   double loss = c;\n',
+                '   for (i=0; i<{}; i++){{\n'.format(self.domain.n),
+                '     for (j=0; j<{}; j++){{\n'.format(self.domain.n),
+                '       loss += Q[i][j]*(args[i]-mu[i])*(args[j]-mu[j]);\n',
+                '       }\n',
+                '     }\n']     
+            
 
-class CumulativeLoss(LossFunction):
-    """ Class for cumulative loss function objects """
+
+class PolynomialLossFunction(LossFunction):
+    """ A polynomial loss function in n dimensions of arbitrary order, 
+        represented in the basis of monomials """ 
     
-    def __init__(self, lossfuncs):
-        """ Constructor. Here lossfuncs is a list of LossFunction objects """
-        # check that domains are the same, then call superclass constructor        
-        super(LossFunction, self).__init__(lossfuncs[0].domain)
-        self.lossfuncs = lossfuncs
-        
-    def sample(self, N):
-        """ Draw N independent samples from the distribution """
-        indices = np.random.choice(len(self.weights), N, p=self.weights/np.sum(self.weights))
-        return np.concatenate([self.distributions[index].sample(1) for index in indices])
-    
-    def add(self, lossfunc):
-        """ Adds the loss function to the cumulative loss """
-        self.lossfuncs.append(lossfunc)
-        
+    def __init__(self, domain, coeffs, exponents):
+        """ Construct a PolynomialLossFunction that is the sum of M monomials.
+            coeffs is an M-dimensional array containing the coefficients of the
+            monomials, and exponents is a list of n-tuples of length M, with 
+            the i-th tuple containing the exponents of the n variables in the monomial. 
+ 
+            For example, the polynomial l(x) = 3*x_1^3 + 2*x_1*x_3 + x2^2 + 2.5*x_2*x_3 + x_3^3
+            in dimension n=3 is constructed using
+                coeffs = [3, 2, 1, 2.5, 1] and
+                exponents = [(3,0,0), (1,0,1), (0,2,0), (0,1,1), (0,0,3)] 
+        """ 
+        if not len(coeffs) == len(exponents):
+            raise Exception('Size of coeffs must be size of exponents along first axis!')
+        if not len(exponents[0]) == domain.n:
+            raise Exception('Dimension of elements of coeffs must be dimension of domain!')
+        self.domain = domain
+        self.coeffs, self.exponents = coeffs, exponents
+        self.m = len(coeffs)
+        self.polydict = {exps:coeff for coeff,exps in zip(coeffs,exponents)}
+        self.desc = 'Polynomial'
+
     def val(self, points):
-        """ Returns the cumulative loss for each of the points in points """
-        return np.array(np.sum(np.array([lossfunc.val(points) for lossfunc in self.lossfuncs]), axis=0), ndmin=1)
+        monoms = np.array([points**exps for exps in self.polydict.keys()]).prod(2)
+        return np.sum([monom*coeff for monom,coeff in zip(monoms, self.polydict.values())], axis=0)
     
-    def grad(self, points): 
-        """ Returns gradient of the cumulative loss function at the specified points """
-        # the following looks weird but it allows to vectorize everything.
-        return np.sum(np.array([lossfunc.grad(points) for lossfunc in self.lossfuncs]), axis=0)
+    def __add__(self, poly2):
+        """ Add two PolynomialLossFunction objects (assumes that both polynomials 
+            are defined over the same domain. """
+        newdict = self.polydict.copy()
+        for exps, coeff in poly2.polydict.items():
+            try:
+                newdict[exps] = newdict[exps] + coeff
+            except KeyError:
+                newdict[exps] = coeff
+        return PolynomialLossFunction(self.domain, newdict.values(), newdict.keys())
+        
+    def norm(self, p):
+        """ Computes the p-Norm of the loss function over the domain """
+        if isinstance(self.domain, nBox):
+            nboxes = [self.domain]
+        elif isinstance(self.domain, UnionOfDisjointnBoxes):
+            nboxes = self.domain.nboxes
+        else:
+            raise Exception('Sorry, so far only nBox and UnionOfDisjointnBoxes are supported!')
+        if np.isinf(p):
+            raise NotImplementedError
+        else:
+            ccode = ['#include <math.h>\n\n',
+                     'double c[{}] = {{{}}};\n'.format(self.m, ','.join(str(coeff) for coeff in self.coeffs)),
+                     'double e[{}] = {{{}}};\n\n'.format(self.m*self.domain.n, ','.join(str(xpnt) for xpntgrp in self.exponents for xpnt in xpntgrp)),
+                     'double f(int n, double args[n]){\n',
+                     '   double nu = *(args + {});\n'.format(self.domain.n),
+                     '   int i,j;\n',
+                     '   double mon;\n',  
+                     '   double loss = 0.0;\n',
+                     '   for (i=0; i<{}; i++){{\n'.format(self.m),
+                     '     mon = 1.0;\n',
+                     '     for (j=0; j<{}; j++){{\n'.format(self.domain.n),
+                     '       mon = mon*pow(args[j], e[i*{}+j]);\n'.format(self.domain.n),
+                     '       }\n',
+                     '     loss += c[i]*mon;}\n',
+                     '   return pow(fabs(loss), {});\n'.format(p),
+                     '   }']  
+            ranges = [nbox.bounds for nbox in nboxes]
+            return ctypes_integrate(ccode, ranges)**(1/p)
     
-    def Hessian(self, points): 
-        """ Returns Hessian of the cumulative loss function at the specified points """       
-        return np.sum(np.array([lossfunc.Hessian(points) for lossfunc in self.lossfuncs]), axis=0)
-  
-    def upperbound_val(self):
-        """ Computes the a very crude upper bound of the oveall maximum based on the 
-            maxima of the individual loss functions """
-        return np.sum(np.array([lossfunc.max() for lossfunc in self.lossfuncs]))
+    def gen_ccode(self):
+        return ['double c[{}] = {{{}}};\n'.format(self.m, ','.join(str(coeff) for coeff in self.coeffs)),
+                'double e[{}] = {{{}}};\n\n'.format(self.m*self.domain.n, ','.join(str(xpnt) for xpntgrp in self.exponents for xpnt in xpntgrp)),
+                'double phi(int n, double args[n]){\n',
+                '   double nu = *(args + {});\n'.format(self.domain.n),
+                '   int i,j;\n',
+                '   double mon;\n',  
+                '   double loss = 0.0;\n',
+                '   for (i=0; i<{}; i++){{\n'.format(self.m),
+                '     mon = 1.0;\n',
+                '     for (j=0; j<{}; j++){{\n'.format(self.domain.n),
+                '       mon = mon*pow(args[j], e[i*{}+j]);\n'.format(self.domain.n),
+                '       }\n',
+                '     loss += c[i]*mon;\n',
+                '     }\n']    
     
+    
+    
+#######################################################################
+# Some helper functions
+#######################################################################
+ 
     
 def ctypes_integrate(ccode, ranges):
     with open('libs/tmpintlib.c', 'w') as file:
@@ -476,6 +461,7 @@ def create_random_Cs(covs, dist=uniform()):
         C[i] = np.random.uniform(low=pmax, high=1+pmax)
     return C
 
+
 def random_AffineLosses(dom, L, T, d=2):
     """ Creates T random L-Lipschitz AffineLossFunction over domain dom,
         and returns uniform bound M. For now sample the a-vector uniformly
@@ -526,4 +512,76 @@ def isPosDef(Q):
     except np.linalg.LinAlgError:
         return False 
         
+       
+       
+        
+#######################################################################
+# The functions below are deprecated and to be removed at a later stage
+#######################################################################
+
+class GaussianLossFunction(LossFunction):
+    """ Loss given by l(s) = M(1 - gamma*exp[-0.5*(s-x)^T Sigma^-1 (s-x)]) """ 
+    
+    def __init__(self, domain, mean, cov, M):
+        self.domain, self.M = domain, M
+        self.p = Gaussian(domain, mean, cov)
+        self.L = self.computeL()
+        self.Cnorm = 1/self.p.density(mean)
+    
+    def val(self, points):
+        return self.M*(1 - self.Cnorm*self.p.density(points))
+    
+    def min(self):
+        """ For now just returns 1-peak, need to do something smarter... """
+        return self.M*(1 - self.Cnorm*self.p.density(self.p.mean))
+    
+    def grad(self, points): 
+        return - self.M*self.Cnorm*self.p.grad_density(points)
+    
+    def Hessian(self, points): 
+        return - self.M*self.Cnorm*self.p.Hessian_density(points)
+    
+    def computeL(self):
+        """ Computes a Lipschitz constant for the loss function. """
+        lambdamin = eigh(self.p.cov, eigvals=(0,0), eigvals_only=True)
+        return self.M*((2*np.pi)**self.domain.n*np.e*np.linalg.det(self.p.cov)*lambdamin)**(-0.5)
+
+
+class CumulativeLoss(LossFunction):
+    """ Class for cumulative loss function objects """
+    
+    def __init__(self, lossfuncs):
+        """ Constructor. Here lossfuncs is a list of LossFunction objects """
+        # check that domains are the same, then call superclass constructor        
+        super(LossFunction, self).__init__(lossfuncs[0].domain)
+        self.lossfuncs = lossfuncs
+        
+    def sample(self, N):
+        """ Draw N independent samples from the distribution """
+        indices = np.random.choice(len(self.weights), N, p=self.weights/np.sum(self.weights))
+        return np.concatenate([self.distributions[index].sample(1) for index in indices])
+    
+    def add(self, lossfunc):
+        """ Adds the loss function to the cumulative loss """
+        self.lossfuncs.append(lossfunc)
+        
+    def val(self, points):
+        """ Returns the cumulative loss for each of the points in points """
+        return np.array(np.sum(np.array([lossfunc.val(points) for lossfunc in self.lossfuncs]), axis=0), ndmin=1)
+    
+    def grad(self, points): 
+        """ Returns gradient of the cumulative loss function at the specified points """
+        # the following looks weird but it allows to vectorize everything.
+        return np.sum(np.array([lossfunc.grad(points) for lossfunc in self.lossfuncs]), axis=0)
+    
+    def Hessian(self, points): 
+        """ Returns Hessian of the cumulative loss function at the specified points """       
+        return np.sum(np.array([lossfunc.Hessian(points) for lossfunc in self.lossfuncs]), axis=0)
+  
+    def upperbound_val(self):
+        """ Computes the a very crude upper bound of the oveall maximum based on the 
+            maxima of the individual loss functions """
+        return np.sum(np.array([lossfunc.max() for lossfunc in self.lossfuncs]))
+    
+    
     
