@@ -13,7 +13,6 @@ from scipy.optimize import brentq
 from scipy.integrate import nquad
 from .LossFunctions import PolynomialLossFunction, AffineLossFunction, QuadraticLossFunction
 import ContNoRegret
-import matplotlib.pyplot as plt
 
 
 class OmegaPotential(object):
@@ -351,13 +350,14 @@ def compute_nustar(dom, potential, eta, Loss, M, nu_prev, eta_prev, t, pid='0', 
 #                     xs = np.linspace(a-5, b+5, 50)
 #                     plt.plot(xs, np.array([f(x) for x in xs]))
 #                     plt.show()
-                try:
-#                     nustar = brentq(f, a-5000, b+5000)
-                    nustar = brentq(f, a, b)
-                except ValueError:
-                    print('WARINING: PROCESS {} HAS ENCOUNTERED f(a)!=f(b)!'.format(pid))
-#                 print('nustar={0:.3f}'.format(nustar))
-            return nustar
+                success = False
+                while not success:
+                    try:
+                        nustar = brentq(f, a, b)
+                        success = True
+                    except ValueError:
+                        a, b = a - 20, b + 20
+                        print('WARINING: PROCESS {} HAS ENCOUNTERED f(a)!=f(b)!'.format(pid))
         elif isinstance(dom, ContNoRegret.Domains.DifferenceOfnBoxes):
             if isinstance(potential, ExponentialPotential):
                 # in this case we don't have to search for nustar, we can find it (semi-)explicitly
@@ -367,10 +367,17 @@ def compute_nustar(dom, potential, eta, Loss, M, nu_prev, eta_prev, t, pid='0', 
             else:
                 f = lambda nu: (nquad(lib.phi, dom.outer.bounds, [nu])[0] 
                                 - np.sum([nquad(lib.phi, nbox.bounds, [nu])[0] for nbox in dom.inner]) - 1)
-                nustar = brentq(f, a, b)
-            return nustar
+                success = False
+                while not success:
+                    try:
+                        nustar = brentq(f, a, b)
+                        success = True
+                    except ValueError:
+                        a, b = a - 20, b + 20
+                        print('WARINING: PROCESS {} HAS ENCOUNTERED f(a)!=f(b)!'.format(pid))
         else:
             raise Exception('For now, domain must be an nBox or a UnionOfDisjointnBoxes!') 
+        return nustar
     finally: 
         dlclose(lib._handle) # this is to release the lib, so we can import the new version
         os.remove('{}/tmplib{}.c'.format(tmpfolder,pid)) # clean up
