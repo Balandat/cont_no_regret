@@ -323,7 +323,7 @@ class QuadraticLossFunction(LossFunction):
         else:
             raise Exception('Sorry, so far only nBox and UnionOfDisjointnBoxes are supported!')
         if np.isinf(p):
-            raise NotImplementedError
+            return self.max()
         else:
             ccode = ['#include <math.h>\n\n',
                      'double Q[{}][{}] = {{{}}};\n'.format(self.domain.n, self.domain.n, ','.join(str(q) for row in self.Q for q in row)),
