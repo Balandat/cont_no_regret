@@ -10,6 +10,7 @@ import pickle, os
 from matplotlib import pyplot as plt
 from scipy.stats import linregress 
 from .Domains import nBox
+from .animate import save_animation
 
 # def compute_C(volS, n):
 #     """ Computes the constant C = vol(S)/vol(B_1), where B_1 is the unit ball in R^n """
@@ -148,10 +149,21 @@ def plot_results(results, offset=500, directory=None, show=True):
             plt.show()
             
 
-def save_results(results, directory):
+def save_results(results, directory, create_anims=False):
     """ Serializes a results object for persistent storage using the pickle module. """ 
-    os.makedirs(directory, exist_ok=True) # this could probably use a safer implementation  
-    pigglname = '{}{}_{}.piggl'.format(directory, results[0].problem.desc, results[0].problem.lossfuncs[0].desc)    
+    os.makedirs(directory, exist_ok=True) # this could probably use a safer implementation
+    # try to display an animation of the whole thing
+    if create_anims:
+        T = results[0].problem.T
+        save_animation(results, frames=T-1, interval=10/T*1000, directory=directory)
+    # before saving the results let's remove the plot information (too much data)
+    for result in results:
+        try:
+            del result.problem.pltpoints, result.problem.data
+        except AttributeError:
+            pass
+    pigglname = '{}{}_{}.piggl'.format(directory, results[0].problem.desc, 
+                                       results[0].problem.lossfuncs[0].desc)    
     with open(pigglname, 'wb') as f:
         pickle.dump(results, f, pickle.HIGHEST_PROTOCOL)
 
