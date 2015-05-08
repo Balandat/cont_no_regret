@@ -5,11 +5,12 @@ Script for visualizing some potential functions
 @date: May 6, 2015
 '''
 
-from ContNoRegret.DualAveraging import *
+from ContNoRegret.Potentials import *
 import matplotlib.pyplot as plt
 
-potentials = [ExponentialPotential(), CompositeOmegaPotential(gamma=2), CompositeOmegaPotential(gamma=4), 
-              pNormPotential(1.25), pNormPotential(1.75), LogtasticPotential()]
+potentials = [ExponentialPotential(), IdentityPotential(), pNormPotential(1.25), 
+              pNormPotential(1.75), CompositePotential(gamma=2), CompositePotential(gamma=4), 
+              ExpPPotential(1.5), PExpPotential(1.5), HuberPotential(2), LogtasticPotential()]
 
 u = np.linspace(-10, 20, 10000)
 vals = [np.maximum(pot.phi(u), 0) for pot in potentials]
