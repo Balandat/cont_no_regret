@@ -187,6 +187,79 @@ class CompositeOmegaPotential(OmegaPotential):
         return True
     
     
+class ExpPPotential(OmegaPotential):
+    """ A potential given by a composition of an exponential and a p norm """
+    
+    def __init__(self, p, desc='ExpPPot'):
+        """ Constructor """
+        self.delta = p
+        self.desc = desc = desc + ', ' + r'$p={{{}}}$'.format(p)
+        
+    def phi(self, u):
+        """ Returns phi(u), the value of the ExpP-potential at the points u"""
+        return (u>=1)*u**(1/(self.p-1)) + (u<1)*np.exp((u-1)/(self.p-1))
+        
+    def phi_prime(self, u):
+        """ Returns phi'(u), the first derivative of the zero-potential at the points u """
+        return ((u>=1)/(self.p-1)*u**((2-self.p)/(self.p-1)) 
+                + (u<1)/(self.p-1)*np.exp((u-1)/(self.p-1)))
+ 
+    def phi_double_prime(self, u):
+        """ Returns phi''(u), the second derivative of the zero-potential at the points u """
+        return ((u>=1)*(2-self.p)/(self.p-1)**2*u**((3-2*self.p)/(self.p-1)) 
+                + (u<1)/(self.p-1)**2*np.exp((u-1)/(self.p-1)))
+     
+    def phi_inv(self, u):
+        """ Returns phi^{-1}(u), the inverse function of the zero-potential at the points u """
+        return (u>=1)*u**(self.p-1) + (u<1)*(1+(self.p-1)*np.log(u))
+     
+    def phi_inv_prime(self, u):
+        """ Returns phi^{-1}'(u), the first derivative of the inverse 
+            function of the zero-potential at the points u """
+        raise 1/self.phi_prime(self.phi_inv(u))
+    
+    def isconvex(self):
+        """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
+        return True
+    
+    
+class PExpPotential(OmegaPotential):
+    """ A potential given by a composition of a p norm and an exponential """
+    
+    def __init__(self, p, desc='PExpPot'):
+        """ Constructor """
+        self.delta = p
+        self.desc = desc = desc + ', ' + r'$p={{{}}}$'.format(p)
+        
+    def phi(self, u):
+        """ Returns phi(u), the value of the Pexp-potential at the points u"""
+        return (u<1)*u**(1/(self.p-1)) + (u>=1)*np.exp((u-1)/(self.p-1))
+        
+    def phi_prime(self, u):
+        """ Returns phi'(u), the first derivative of the zero-potential at the points u """
+        return ((u<1)/(self.p-1)*u**((2-self.p)/(self.p-1)) 
+                + (u>=1)/(self.p-1)*np.exp((u-1)/(self.p-1)))
+ 
+    def phi_double_prime(self, u):
+        """ Returns phi''(u), the second derivative of the zero-potential at the points u """
+        return ((u<1)*(2-self.p)/(self.p-1)**2*u**((3-2*self.p)/(self.p-1)) 
+                + (u>=1)/(self.p-1)**2*np.exp((u-1)/(self.p-1)))
+     
+    def phi_inv(self, u):
+        """ Returns phi^{-1}(u), the inverse function of the zero-potential at the points u """
+        return (u<1)*u**(self.p-1) + (u>=1)*(1+(self.p-1)*np.log(u))
+     
+    def phi_inv_prime(self, u):
+        """ Returns phi^{-1}'(u), the first derivative of the inverse 
+            function of the zero-potential at the points u """
+        raise 1/self.phi_prime(self.phi_inv(u))
+    
+    def isconvex(self):
+        """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
+        return True
+    
+    
+  
 class HuberPotential(OmegaPotential):
     """ The potential given by the Huber loss function  """
     
