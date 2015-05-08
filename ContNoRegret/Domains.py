@@ -373,7 +373,7 @@ class DifferenceOfnBoxes(Domain):
         # since the inner rectangles are disjoint, the volume is just the volume of
         # the outer nBox minus the sum of the volumes of the inner nBoxes
         # Unfortunately determining v is more difficult ...
-        diameter, volume_outer = self.outer.compute_parameters()[0:2]
+        diameter, volume_outer, vouter = self.outer.compute_parameters()
         volume = volume_outer - np.sum([nbox.volume for nbox in self.inner])
         return diameter, volume, None
     
@@ -464,3 +464,18 @@ def S():
     S = UnionOfDisjointRectangles([Rectangle(xlim, ylim) for xlim,ylim in zip(xlims, ylims)])
     S.set_v(3.0/11)
     return S
+
+def unitbox(n):
+    """ Returns the n-unit cube [-0.5, 0.5]**n """
+    return nBox([(-0.5, 0.5)]*n)
+
+def hollowbox(n, ratio=0.5):
+    """ Returns an n-cube centered at the origin with cut-out center, 
+        with total volume 1. Here ratio is the ratio of volume of the 
+        hollow cube to that of the outer cube. """
+    a = (1 - ratio)**(-1/n)
+    b = (ratio/(1-ratio))**(1/n)
+    return DifferenceOfnBoxes(nBox([(-0.5*a,0.5*a)]*n), [nBox([(-0.5*b,0.5*b)]*n)])
+    
+    
+
