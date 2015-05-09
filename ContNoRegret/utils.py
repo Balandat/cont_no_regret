@@ -12,10 +12,6 @@ from scipy.stats import linregress
 from .Domains import nBox
 from .animate import save_animation
 
-# def compute_C(volS, n):
-#     """ Computes the constant C = vol(S)/vol(B_1), where B_1 is the unit ball in R^n """
-#     volB1 = np.pi**(n/2)/Gamma(n/2+1)
-#     return volS/volB1
 
 def compute_etaopt(dom, M, T):
     """ Computes the optimal learning rate for known time horizon T"""
@@ -68,66 +64,87 @@ def plot_results(results, offset=500, directory=None, show=True):
         plt.xlabel('t')   
         # and now plot, depending on what data is there
         for result in results:
-            if result.etaopts:
-                for i,(T,eta) in enumerate(result.etaopts.items()):
-                    plt.figure(1)
-                    lavg = plt.plot(result.regs_etaopts['savg'][i][0:T], linewidth=2.0, 
-                                    label=result.label+' '+r' $\eta_{{opt}}(T={0:.1e}) = {1:.3f}$'.format(T, eta), rasterized=True)
-                    plt.plot(np.arange(T,result.problem.T), result.regs_etaopts['savg'][i][T:], '--', 
-                             color=lavg[0].get_color(), linewidth=2, rasterized=True)
-                    plt.fill_between(np.arange(result.problem.T), result.regs_etaopts['perc_10'][i], 
-                                     result.regs_etaopts['perc_90'][i], color=lavg[0].get_color(), alpha=0.2, rasterized=True)
-                    plt.figure(2)
-                    ltavg = plt.plot(np.arange(offset,T), result.regs_etaopts['tsavg'][i][offset:T], linewidth=2.0, 
-                                     label=result.label+' '+r' $\eta_{{opt}}(T={0:.1e}) = {1:.3f}$'.format(T, eta), rasterized=True)
-                    plt.plot(np.arange(T,result.problem.T), result.regs_etaopts['tsavg'][i][T:], '--', 
-                             color=ltavg[0].get_color(), linewidth=2, rasterized=True)
-                    plt.fill_between(np.arange(offset,result.problem.T), result.regs_etaopts['tavg_perc_10'][i][offset:], 
-                                     result.regs_etaopts['tavg_perc_90'][i][offset:], color=ltavg[0].get_color(), alpha=0.2, rasterized=True)
-                    plt.xlim((0, result.problem.T))
-                    plt.figure(3)
-                    llogtavg = plt.plot(np.arange(1,result.problem.T+1), result.regs_etaopts['tsavg'][i], 
-                                        linewidth=2.0, label=result.label+' '+r' $\eta_{{opt}}(T={0:.1e}) = {1:.3f}$'.format(T, eta), rasterized=True)
-                    plt.fill_between(np.arange(1,result.problem.T+1), result.regs_etaopts['tavg_perc_10'][i], 
-                                    result.regs_etaopts['tavg_perc_90'][i], color=llogtavg[0].get_color(), alpha=0.2, rasterized=True)
-#                     plt.plot(np.arange(1,result.problem.T+1), result.regs_etaopts['tsavgbnd'][i], '--', 
-#                              color=llogtavg[0].get_color(), linewidth=2, rasterized=True)
-            if result.etas:
-                for i,eta in enumerate(result.etas):
-                    plt.figure(1)
-                    lavg = plt.plot(result.regs_etas['savg'][i], linewidth=2.0, label=result.label+' '+r' $\eta = {0:.3f}$'.format(eta), rasterized=True)
-                    plt.fill_between(np.arange(result.problem.T), result.regs_etas['perc_10'][i], 
-                                     result.regs_etas['perc_90'][i], color=lavg[0].get_color(), alpha=0.15, rasterized=True)
-                    plt.figure(2)
-                    ltavg = plt.plot(np.arange(offset,result.problem.T), result.regs_etas['tsavg'][i][offset:], 
-                                     linewidth=2.0, label=result.label+' '+r'$\eta = {0:.3f}$'.format(eta), rasterized=True)
-                    plt.fill_between(np.arange(offset,result.problem.T), result.regs_etas['tavg_perc_10'][i][offset:], 
-                                     result.regs_etas['tavg_perc_90'][i][offset:], color=ltavg[0].get_color(), alpha=0.15, rasterized=True)
-                    plt.xlim((0, result.problem.T))
-                    plt.figure(3)
-                    llogtavg = plt.plot(np.arange(1,result.problem.T+1), result.regs_etas['tsavg'][i], linewidth=2.0, label=result.label+' '+r' $\eta = {0:.3f}$'.format(eta), rasterized=True)
-                    plt.fill_between(np.arange(1,result.problem.T+1), result.regs_etas['tavg_perc_10'][i], 
-                                     result.regs_etas['tavg_perc_90'][i], color=llogtavg[0].get_color(), alpha=0.15, rasterized=True) 
-#                     plt.plot(np.arange(1,result.problem.T+1), result.regs_etas['tsavgbnd'][i], '--', color=llogtavg[0].get_color(), linewidth=2, rasterized=True)     
-            if result.alphas:
-                for i,alpha in enumerate(result.alphas):
-                    plt.figure(1)
-                    lavg = plt.plot(result.regs_alphas['savg'][i], linewidth=2.0,
-                             label=result.label+' '+r' $\eta_t = {0} \cdot t^{{{1}}}$'.format(result.thetas[i], -alpha), rasterized=True)
-                    plt.fill_between(np.arange(result.problem.T), result.regs_alphas['perc_10'][i], 
-                                     result.regs_alphas['perc_90'][i], color=lavg[0].get_color(), alpha=0.15, rasterized=True)
-                    plt.figure(2)
-                    ltavg = plt.plot(np.arange(result.problem.T)[offset:], result.regs_alphas['tsavg'][i][offset:], linewidth=2.0, 
-                             label=result.label+' '+r' $\eta_t = {0} \cdot t^{{{1}}}$'.format(result.thetas[i], -alpha), rasterized=True)
-                    plt.fill_between(np.arange(offset,result.problem.T), result.regs_alphas['tavg_perc_10'][i][offset:], 
-                                     result.regs_alphas['tavg_perc_90'][i][offset:], color=ltavg[0].get_color(), alpha=0.15, rasterized=True)
-                    plt.xlim((0, result.problem.T)) 
-                    plt.figure(3)
-                    lltsavg = plt.plot(np.arange(1,result.problem.T+1), result.regs_alphas['tsavg'][i], linewidth=2.0, 
-                                         label=result.label+' '+r' $\eta_t = {0} \cdot t^{{{1}}}$'.format(result.thetas[i], -alpha), rasterized=True)
-                    plt.fill_between(np.arange(1,result.problem.T+1), result.regs_alphas['tavg_perc_10'][i], 
-                                    result.regs_alphas['tavg_perc_90'][i], color=lltsavg[0].get_color(), alpha=0.15, rasterized=True)
-#                     plt.plot(np.arange(1,result.problem.T+1), result.regs_alphas['tsavgbnd'][i], '--', color=lltsavg[0].get_color(), linewidth=2.0, rasterized=True) 
+            if result.algo in ['DA', 'OGD']:
+                try:
+                    for i,(T,eta) in enumerate(result.etaopts.items()):
+                        plt.figure(1)
+                        lavg = plt.plot(result.regs_etaopts['savg'][i][0:T], linewidth=2.0, 
+                                        label=result.label+' '+r' $\eta_{{opt}}(T={0:.1e}) = {1:.3f}$'.format(T, eta), rasterized=True)
+                        plt.plot(np.arange(T,result.problem.T), result.regs_etaopts['savg'][i][T:], '--', 
+                                 color=lavg[0].get_color(), linewidth=2, rasterized=True)
+                        plt.fill_between(np.arange(result.problem.T), result.regs_etaopts['perc_10'][i], 
+                                         result.regs_etaopts['perc_90'][i], color=lavg[0].get_color(), alpha=0.2, rasterized=True)
+                        plt.figure(2)
+                        ltavg = plt.plot(np.arange(offset,T), result.regs_etaopts['tsavg'][i][offset:T], linewidth=2.0, 
+                                         label=result.label+' '+r' $\eta_{{opt}}(T={0:.1e}) = {1:.3f}$'.format(T, eta), rasterized=True)
+                        plt.plot(np.arange(T,result.problem.T), result.regs_etaopts['tsavg'][i][T:], '--', 
+                                 color=ltavg[0].get_color(), linewidth=2, rasterized=True)
+                        plt.fill_between(np.arange(offset,result.problem.T), result.regs_etaopts['tavg_perc_10'][i][offset:], 
+                                         result.regs_etaopts['tavg_perc_90'][i][offset:], color=ltavg[0].get_color(), alpha=0.2, rasterized=True)
+                        plt.xlim((0, result.problem.T))
+                        plt.figure(3)
+                        llogtavg = plt.plot(np.arange(1,result.problem.T+1), result.regs_etaopts['tsavg'][i], 
+                                            linewidth=2.0, label=result.label+' '+r' $\eta_{{opt}}(T={0:.1e}) = {1:.3f}$'.format(T, eta), rasterized=True)
+                        plt.fill_between(np.arange(1,result.problem.T+1), result.regs_etaopts['tavg_perc_10'][i], 
+                                        result.regs_etaopts['tavg_perc_90'][i], color=llogtavg[0].get_color(), alpha=0.2, rasterized=True)
+    #                     plt.plot(np.arange(1,result.problem.T+1), result.regs_etaopts['tsavgbnd'][i], '--', 
+    #                              color=llogtavg[0].get_color(), linewidth=2, rasterized=True)
+                except AttributeError: pass
+                try:
+                    for i,eta in enumerate(result.etas):
+                        plt.figure(1)
+                        lavg = plt.plot(result.regs_etas['savg'][i], linewidth=2.0, label=result.label+' '+r' $\eta = {0:.3f}$'.format(eta), rasterized=True)
+                        plt.fill_between(np.arange(result.problem.T), result.regs_etas['perc_10'][i], 
+                                         result.regs_etas['perc_90'][i], color=lavg[0].get_color(), alpha=0.15, rasterized=True)
+                        plt.figure(2)
+                        ltavg = plt.plot(np.arange(offset,result.problem.T), result.regs_etas['tsavg'][i][offset:], 
+                                         linewidth=2.0, label=result.label+' '+r'$\eta = {0:.3f}$'.format(eta), rasterized=True)
+                        plt.fill_between(np.arange(offset,result.problem.T), result.regs_etas['tavg_perc_10'][i][offset:], 
+                                         result.regs_etas['tavg_perc_90'][i][offset:], color=ltavg[0].get_color(), alpha=0.15, rasterized=True)
+                        plt.xlim((0, result.problem.T))
+                        plt.figure(3)
+                        llogtavg = plt.plot(np.arange(1,result.problem.T+1), result.regs_etas['tsavg'][i], linewidth=2.0, label=result.label+' '+r' $\eta = {0:.3f}$'.format(eta), rasterized=True)
+                        plt.fill_between(np.arange(1,result.problem.T+1), result.regs_etas['tavg_perc_10'][i], 
+                                         result.regs_etas['tavg_perc_90'][i], color=llogtavg[0].get_color(), alpha=0.15, rasterized=True) 
+    #                     plt.plot(np.arange(1,result.problem.T+1), result.regs_etas['tsavgbnd'][i], '--', color=llogtavg[0].get_color(), linewidth=2, rasterized=True)     
+                except AttributeError: pass
+                try:
+                    for i,alpha in enumerate(result.alphas):
+                        plt.figure(1)
+                        lavg = plt.plot(result.regs_alphas['savg'][i], linewidth=2.0,
+                                 label=result.label+' '+r' $\eta_t = {0} \cdot t^{{{1}}}$'.format(result.thetas[i], -alpha), rasterized=True)
+                        plt.fill_between(np.arange(result.problem.T), result.regs_alphas['perc_10'][i], 
+                                         result.regs_alphas['perc_90'][i], color=lavg[0].get_color(), alpha=0.15, rasterized=True)
+                        plt.figure(2)
+                        ltavg = plt.plot(np.arange(result.problem.T)[offset:], result.regs_alphas['tsavg'][i][offset:], linewidth=2.0, 
+                                 label=result.label+' '+r' $\eta_t = {0} \cdot t^{{{1}}}$'.format(result.thetas[i], -alpha), rasterized=True)
+                        plt.fill_between(np.arange(offset,result.problem.T), result.regs_alphas['tavg_perc_10'][i][offset:], 
+                                         result.regs_alphas['tavg_perc_90'][i][offset:], color=ltavg[0].get_color(), alpha=0.15, rasterized=True)
+                        plt.xlim((0, result.problem.T)) 
+                        plt.figure(3)
+                        lltsavg = plt.plot(np.arange(1,result.problem.T+1), result.regs_alphas['tsavg'][i], linewidth=2.0, 
+                                             label=result.label+' '+r' $\eta_t = {0} \cdot t^{{{1}}}$'.format(result.thetas[i], -alpha), rasterized=True)
+                        plt.fill_between(np.arange(1,result.problem.T+1), result.regs_alphas['tavg_perc_10'][i], 
+                                        result.regs_alphas['tavg_perc_90'][i], color=lltsavg[0].get_color(), alpha=0.15, rasterized=True)
+        #                     plt.plot(np.arange(1,result.problem.T+1), result.regs_alphas['tsavgbnd'][i], '--', color=lltsavg[0].get_color(), linewidth=2.0, rasterized=True) 
+                except AttributeError: pass
+            else:
+                plt.figure(1)
+                lavg = plt.plot(result.regs_norate['savg'][i], linewidth=2.0, label=result.label, rasterized=True)
+                plt.fill_between(np.arange(result.problem.T), result.regs_norate['perc_10'][i], 
+                                 result.regs_norate['perc_90'][i], color=lavg[0].get_color(), alpha=0.15, rasterized=True)
+                plt.figure(2)
+                ltavg = plt.plot(np.arange(result.problem.T)[offset:], result.regs_norate['tsavg'][i][offset:], 
+                                 linewidth=2.0, label=result.label, rasterized=True)
+                plt.fill_between(np.arange(offset,result.problem.T), result.regs_norate['tavg_perc_10'][i][offset:], 
+                                 result.regs_norate['tavg_perc_90'][i][offset:], color=ltavg[0].get_color(), alpha=0.15, rasterized=True)
+                plt.xlim((0, result.problem.T)) 
+                plt.figure(3)
+                lltsavg = plt.plot(np.arange(1,result.problem.T+1), result.regs_norate['tsavg'][i], linewidth=2.0, 
+                                   label=result.label, rasterized=True)
+                plt.fill_between(np.arange(1,result.problem.T+1), result.regs_norate['tavg_perc_10'][i], 
+                                result.regs_norate['tavg_perc_90'][i], color=lltsavg[0].get_color(), alpha=0.15, rasterized=True)
+                     
         # make plots pretty and show legend
         plt.figure(1)
         plt.legend(loc='upper left', prop={'size':13}, frameon=False) 
@@ -168,20 +185,6 @@ def save_results(results, directory, create_anims=False):
         pickle.dump(results, f, pickle.HIGHEST_PROTOCOL)
 
             
-def parse_regrets(reg_results, regrets, prob, theta, alpha, algo):
-    """ Function that computes some aggregate information from the raw regret 
-        samples in the list 'regrets' """ 
-    reg_results['savg'].append(np.average(regrets, axis=0))
-    reg_results['perc_10'].append(np.percentile(regrets, 10, axis=0))
-    reg_results['perc_90'].append(np.percentile(regrets, 90, axis=0))
-    reg_results['tsavg'].append(reg_results['savg'][-1]/(1+np.arange(prob.T)))
-    reg_results['tavg_perc_10'].append(reg_results['perc_10'][-1]/(1+np.arange(prob.T)))
-    reg_results['tavg_perc_90'].append(reg_results['perc_90'][-1]/(1+np.arange(prob.T)))
-#     reg_results['tsavgbnd'].append(regret_bounds(prob.domain, theta, alpha, 
-#                                           prob.Lbnd, prob.M, prob.T, algo=algo))
-    return reg_results
-
-
 def circular_tour(domain, N):
     """ Returns a sequence of N points that wander around in a circle
         in the domain. Used for understanding various learning rates. """
@@ -195,8 +198,6 @@ def circular_tour(domain, N):
     else:
         raise Exception('For now circular_tour only works on nBoxes')
         
-        
-
 
 def CNR_worker(prob, *args, **kwargs):
     """ Helper function for wrapping class methods to allow for easy 
