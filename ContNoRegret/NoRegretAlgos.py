@@ -2,21 +2,15 @@
 Basic Algorithms for the Continuous No-Regret Problem.
 
 @author: Maximilian Balandat
-@date May 7, 2015
+@date May 8, 2015
 '''
 
 import numpy as np
-# from .Distributions import Uniform, Gaussian, MixtureDistribution, ExpifiedMixture
-from .LossFunctions import QuadraticLossFunction, AffineLossFunction, PolynomialLossFunction
-# from .Domains import UnionOfDisjointRectangles
-from .utils import compute_etaopt, parse_regrets
-from .DualAveraging import nustar_quadratic, nustar_generic, compute_nustar
+from .LossFunctions import ZeroLossFunction, ctypes_integrate
+from .utils import compute_etaopt 
+from .DualAveraging import compute_nustar
+from .Domains import nBox, UnionOfDisjointnBoxes
 from scipy.stats import linregress
-from scipy.interpolate import RectBivariateSpline
-from cvxopt import solvers, matrix
-import matplotlib.pyplot as plt
-from matplotlib import cm
-from mpl_toolkits.mplot3d import axes3d
   
 
 class ContNoRegretProblem(object):
@@ -24,15 +18,15 @@ class ContNoRegretProblem(object):
         assumes that the loss functions have "distr" class variable that is a Distribution object """
     
     def __init__(self, domain, lossfuncs, Lbnd, M, desc='nodesc'):
-        """ Constructor for the basic problem class. Here lossfuncs is a 
-            list of loss LossFunction objects. """
+        """ Constructor for the basic problem class. Here lossfuncs 
+            is a list of loss LossFunction objects. """
         self.domain, self.Lbnd, self.M = domain, Lbnd, M
         self.lossfuncs = lossfuncs
         self.T = len(lossfuncs)
         self.optaction, self.optval = None, None
         self.desc = desc
         self.data = []
-        self.pltpoints = self.domain.grid(2000)
+        self.pltpoints = self.domain.grid(2000) # value more or less arbitrary at this point
             
     def compute_regrets(self, losses):    
         """ Computes the regrets (for each time step) for the given array of loss sequences """
@@ -61,51 +55,56 @@ class ContNoRegretProblem(object):
         return NotImplementedError
         #np.sqrt(8*self.domain.n*np.log(self.domain.diameter/self.domain.epsilon*self.T)/self.T)
 
-    def plot_regrets(self, savg_regret_opt, tsavg_regret_opt, 
-                     savg_regret, tsavg_regret, alphas, thetas):
-        """ Plots the results of a simulation of algorithm """
-        raise NotImplementedError
-
     def run_simulation(self, N, algo, Ngrid=100000, label='nolabel', **kwargs):
         """ Runs the no-regret algorithm for different parameters and returns the
             results as a 'Result' object. Accepts optimal constant rates in the 
             dictionary 'etaopts', constant rates in the array-like 'etas', and 
             time-varying rates with parameters in the array-like 'alphas', 'thetas' """
         result_args = {}
-        if 'etaopts' in kwargs:
-            regs_etaopts = {'savg':[], 'tsavg':[], 'tsavgbnd':[], 'perc_10':[], 
-                            'perc_90':[], 'tavg_perc_10':[], 'tavg_perc_90':[]}
-            for T,eta in kwargs['etaopts'].items():
-                print('Simulating eta={}'.format(eta))
-                regrets = self.simulate(N, etas=eta*np.ones(self.T), algo=algo, Ngrid=Ngrid, **kwargs)[2]
-                parse_regrets(regs_etaopts, regrets, self, eta, 0, algo)
-                result_args['regs_etaopts'] = regs_etaopts
+        if algo in ['DA', 'OGD']:     
+            if 'etaopts' in kwargs:
+                regs_etaopts = {'savg':[], 'tsavg':[], 'tsavgbnd':[], 'perc_10':[], 
+                                'perc_90':[], 'tavg_perc_10':[], 'tavg_perc_90':[]}
+                for T,eta in kwargs['etaopts'].items():
+                    if algo == 'DA':
+                        print('Simulating {}, {}, opt. constant rate eta={}'.format(algo, kwargs['potential'].desc, eta))
+                    else:
+                        print('Simulating {}, opt. constant rate eta={}'.format(algo, eta))
+                    regrets = self.simulate(N, etas=eta*np.ones(self.T), algo=algo, Ngrid=Ngrid, **kwargs)[2]
+                    self.parse_regrets(regs_etaopts, regrets)
+                    result_args['regs_etaopts'] = regs_etaopts
+            if 'etas' in kwargs:
+                regs_etas = {'savg':[], 'tsavg':[], 'tsavgbnd':[], 'perc_10':[], 
+                             'perc_90':[], 'tavg_perc_10':[], 'tavg_perc_90':[]}
+                for eta in kwargs['etas']:
+                    if algo == 'DA':
+                        print('Simulating {}, {}, constant rate eta={}'.format(algo, kwargs['potential'].desc, eta))
+                    else:
+                        print('Simulating {}, constant rate eta={}'.format(algo, eta))
+                    regrets = self.simulate(N, etas=eta*np.ones(self.T), algo=algo, Ngrid=Ngrid, **kwargs)[2]
+                    self.parse_regrets(regs_etas, regrets)
+                    result_args['etas'] = kwargs['etas']
+                    result_args['regs_etas'] = regs_etas
+            if 'alphas' in kwargs:
+                regs_alphas = {'savg':[], 'tsavg':[], 'tsavgbnd':[], 'perc_10':[], 
+                               'perc_90':[], 'tavg_perc_10':[], 'tavg_perc_90':[]}
+                for alpha,theta in zip(kwargs['alphas'], kwargs['thetas']): # run for Nloss different sequences of loss functions
+                    if algo == 'DA':
+                        print('Simulating {}, {}, decaying rate with alpha={}, theta={}'.format(algo, kwargs['potential'].desc, alpha, theta))
+                    else:
+                        print('Simulating {}, decaying rate with alpha={}, theta={}'.format(algo, alpha, theta))
+                    regrets = self.simulate(N, etas=theta*(1+np.arange(self.T))**(-alpha), algo=algo, Ngrid=Ngrid, **kwargs)[2]
+                    self.parse_regrets(regs_alphas, regrets)
+                    result_args['alphas'] = kwargs['alphas']
+                    result_args['thetas'] = kwargs['thetas']
+                    result_args['regs_alphas'] = regs_alphas
         else:
-            regs_etaopts = None
-        if 'etas' in kwargs:
-            regs_etas = {'savg':[], 'tsavg':[], 'tsavgbnd':[], 'perc_10':[], 
-                         'perc_90':[], 'tavg_perc_10':[], 'tavg_perc_90':[]}
-            for eta in kwargs['etas']:
-                print('Simulating eta={}'.format(eta))
-                regrets = self.simulate(N, etas=eta*np.ones(self.T), algo=algo, Ngrid=Ngrid, **kwargs)[2]
-                parse_regrets(regs_etas, regrets, self, eta, 0, algo)
-                result_args['etas'] = kwargs['etas']
-                result_args['regs_etas'] = regs_etas
-        else:
-            regs_etas = None
-        if 'alphas' in kwargs:
-            regs_alphas = {'savg':[], 'tsavg':[], 'tsavgbnd':[], 'perc_10':[], 
+            regs_norate = {'savg':[], 'tsavg':[], 'tsavgbnd':[], 'perc_10':[], 
                            'perc_90':[], 'tavg_perc_10':[], 'tavg_perc_90':[]}
-            for alpha,theta in zip(kwargs['alphas'], kwargs['thetas']): # run for Nloss different sequences of loss functions
-                print('Simulating alpha={}, theta={}'.format(alpha, theta))
-                regrets = self.simulate(N, etas=theta*(1+np.arange(self.T))**(-alpha), algo=algo, Ngrid=Ngrid, **kwargs)[2]
-                parse_regrets(regs_alphas, regrets, self, theta, alpha, algo)
-                result_args['alphas'] = kwargs['alphas']
-                result_args['thetas'] = kwargs['thetas']
-                result_args['regs_alphas'] = regs_alphas
-        else:
-            regs_alphas = None
-        # now return the results as a Results object
+            print('Simulating {}, exp-concavity parameter alpha={}'.format(algo, kwargs['alpha']))
+            regrets = self.simulate(N, algo=algo, Ngrid=Ngrid, **kwargs)[2]
+            self.parse_regrets(regs_norate, regrets)
+            result_args['regs_{}'.format(algo)] = regs_norate
         return Results(self, label=label, algo=algo, **result_args)
     
     
@@ -121,12 +120,11 @@ class ContNoRegretProblem(object):
             alpha = kwargs['alpha']
             beta = 0.5*np.minimum(1/4/self.Lbnd/self.domain.diameter, alpha)
             epsilon = 1/beta**2/self.domain.diameter**2
-            if algo == 'EWOO':
-                Nexp = kwargs['Nexp']
         # set up some data structures for keeping record            
         actions, losses, cumloss, regrets = [], [], [], []    
         gridpoints = self.domain.grid(Ngrid)
         approxL = np.zeros(gridpoints.shape[0])
+        cumLossFunc = ZeroLossFunction(self.domain)
         # now run the iterations
         for t, lossfunc in enumerate(self.lossfuncs): 
             if t  == 0:
@@ -159,40 +157,42 @@ class ContNoRegretProblem(object):
                     Ainv = np.array([np.linalg.inv(mat) for mat in A])
                 else:
                     points = actions[-1] - np.einsum('ijk...,ik...->ij...', Ainv, grad)/beta
-                    action, dist = self.domain.gen_project(points, A)
+                    action = self.domain.gen_project(points, A)
                     grad = lossfunc.grad(action)
                     A = A + np.einsum('ij...,i...->ij...', grad, grad)
                     z = np.einsum('ijk...,ik...->ij...', Ainv, grad)
-                    Ainv = Ainv - np.einsum('ij...,i...->ij...', z, z)/(1 + np.einsum('ij,ij->i',points,z))[:,np.newaxis,np.newaxis]
-#             elif algo == 'FAL':
-#                 if t == 0: 
-#                     action = self.domain.sample_uniform(N) # pick arbitrary action in the first step, may as well sample
-#                     grad = lossfunc.grad(action)
-#                     A = np.einsum('ij...,i...->ij...', grad, grad)
-#                     b = grad*(np.einsum('ij,ij->i', grad, action) - 1/beta)[:,np.newaxis]
-#                     Ainv = np.array([np.linalg.pinv(mat) for mat in A]) # so these matrices are singular... what's the issue?
-#                 else:
-#                     points = np.einsum('ijk...,ik...->ij...', Ainv, b) 
-#                     action, dist = self.domain.gen_project(points, A)
-#                     grad = lossfunc.grad(action)
-#                     A = A + np.einsum('ij...,i...->ij...', grad, grad)
-#                     b = b + grad*(np.einsum('ij,ij->i', grad, action) - 1/beta)[:,np.newaxis]
-#                     z = np.einsum('ijk...,ik...->ij...', Ainv, grad)
-#                     Ainv = Ainv - np.einsum('ij...,i...->ij...', z, z)/(1 + np.einsum('ij,ij->i',points,z))[:,np.newaxis,np.newaxis]
-#             elif algo == 'EWOO': 
-#                 if t == 0:
-#                     if not self.domain.isconvex():
-#                         raise Exception('EWOO algorithm only makes sense if the domain is convex!')
-#                     action = self.domain.sample_uniform(N)
-#                 else:
-#                     # if the domain is convex we can just approximate the expectation through sampling.
-#                     etaL = kwargs['alpha']*approxL
-#                     # to ensure numerical stability, we normalize the weights (since we will compute the exponential,
-#                     # additive constants will cancel out in computing the normalization!
-#                     weights = np.exp(-(etaL - np.min(etaL)))
-#                     exp_approx = np.sum(gridpoints[np.random.choice(weights.shape[0], size=Nexp, p=weights/np.sum(weights))], axis=0)/Nexp
-#                     # the action is the same for all samples after the first observation....
-#                     action = np.array([exp_approx,]*N)
+                    Ainv = Ainv - np.einsum('ij...,i...->ij...', z, z)/(1 + np.einsum('ij,ij->i',grad,z))[:,np.newaxis,np.newaxis]
+            elif algo == 'FAL':
+                if t == 0: 
+                    action = self.domain.sample_uniform(N) # pick arbitrary action in the first step, may as well sample
+                    grad = lossfunc.grad(action)
+                    A = np.einsum('ij...,i...->ij...', grad, grad)
+                    b = grad*(np.einsum('ij,ij->i', grad, action) - 1/beta)[:,np.newaxis]
+                    Ainv = np.array([np.linalg.pinv(mat) for mat in A]) # so these matrices are singular... what's the issue?
+                else:
+                    points = np.einsum('ijk...,ik...->ij...', Ainv, b) 
+                    action, dist = self.domain.gen_project(points, A)
+                    grad = lossfunc.grad(action)
+                    A = A + np.einsum('ij...,i...->ij...', grad, grad)
+                    b = b + grad*(np.einsum('ij,ij->i', grad, action) - 1/beta)[:,np.newaxis]
+                    # the following uses the matrix inversion lemma for 
+                    # efficient computation the update of Ainv
+                    z = np.einsum('ijk...,ik...->ij...', Ainv, grad)
+                    Ainv = Ainv - np.einsum('ij...,i...->ij...', z, z)/(1 + np.einsum('ij,ij->i',grad,z))[:,np.newaxis,np.newaxis]
+            elif algo == 'EWOO': 
+                if t == 0:
+                    if not self.domain.isconvex():
+                        raise Exception('EWOO algorithm only makes sense if the domain is convex!')
+                    action = self.domain.sample_uniform(N)
+                else:
+                    if isinstance(self.domain, nBox):
+                        ranges = [self.domain.bounds]
+                    elif isinstance(self.domain, UnionOfDisjointnBoxes):
+                        ranges = [nbox.bounds for nbox in self.domain.nboxes]
+                    else:
+                        raise Exception('For now, domain must be an nBox or a UnionOfDisjointnBoxes!') 
+                    action_ewoo = action_EWOO(cumLossFunc, alpha, ranges)
+                    action = np.array([action_ewoo,]*N)
             
             # now store the actions, losses, etc.
             actions.append(action)
@@ -210,17 +210,38 @@ class ContNoRegretProblem(object):
             regrets.append(cumloss[-1] - optval)
         return np.transpose(np.array(actions), (1,0,2)), np.transpose(np.array(losses)), np.transpose(np.array(regrets))
     
+    
+    def parse_regrets(self, reg_results, regrets):
+        """ Function that computes some aggregate information from the 
+            raw regret samples in the list 'regrets' """ 
+        reg_results['savg'].append(np.average(regrets, axis=0))
+        reg_results['perc_10'].append(np.percentile(regrets, 10, axis=0))
+        reg_results['perc_90'].append(np.percentile(regrets, 90, axis=0))
+        reg_results['tsavg'].append(reg_results['savg'][-1]/(1+np.arange(self.T)))
+        reg_results['tavg_perc_10'].append(reg_results['perc_10'][-1]/(1+np.arange(self.T)))
+        reg_results['tavg_perc_90'].append(reg_results['perc_90'][-1]/(1+np.arange(self.T)))
+    #     reg_results['tsavgbnd'].append(regret_bounds(prob.domain, theta, alpha, 
+    #                                           prob.Lbnd, prob.M, prob.T, algo=algo))
+        return reg_results
+    
 
 class Results(object):
-    """ Class for 'result' objects that contain simulation results generated by ContNoRegretProblems """
+    """ Class for 'result' objects that contain simulation results 
+        generated by ContNoRegretProblems """
     
     def __init__(self, problem, **kwargs):
         self.problem = problem
-        self.etaopts, self.regs_etaopts = kwargs.get('etaopts'), kwargs.get('regs_etaopts')
-        self.etas, self.regs_etas = kwargs.get('etas'), kwargs.get('regs_etas')
-        self.alphas, self.thetas, self.regs_alphas = kwargs.get('alphas'), kwargs.get('thetas'), kwargs.get('regs_alphas')
         self.label = kwargs.get('label')
         self.algo = kwargs.get('algo')
+        if self.algo in ['DA', 'OGD']:  
+            try: self.etaopts, self.regs_etaopts = kwargs['etaopts'], kwargs['regs_etaopts'] 
+            except KeyError: pass
+            try: self.etas, self.regs_etas = kwargs['etas'], kwargs['regs_etas']
+            except KeyError: pass
+            try: self.alphas, self.thetas, self.regs_alphas = kwargs['alphas'], kwargs['thetas'], kwargs['regs_alphas']
+            except KeyError: pass
+        else:
+            self.regs_norate = kwargs['regs_{}'.format(self.algo)]
             
     def estimate_loglog_slopes(self, N=1000):
         """ Estimates slope, intercept and r_value of the asymptotic log-log plot
@@ -235,6 +256,9 @@ class Results(object):
         if self.alphas:
             slopes['alphas'] = self.loglog_slopes(self.regs_alphas['tsavg'], N)
 #             slopes_bnd['alphas'] = self.loglog_slopes(self.regs_alphas['tsavgbnd'], N)
+#         if self.alphas:
+#             slopes['alphas'] = self.loglog_slopes(self.regs_alphas['tsavg'], N)
+# #             slopes_bnd['alphas'] = self.loglog_slopes(self.regs_alphas['tsavgbnd'], N)
         return slopes #, slopes_bnd
         
     def loglog_slopes(self, regrets, N): 
@@ -245,125 +269,23 @@ class Results(object):
             slope = linregress(np.log(T), np.log(Y))[0]
             slopes.append(slope)
         return slopes
+                
+            
     
     
-#######################################################################
-# The functions below are deprecated and to be removed at a later stage
-#######################################################################
-    
-# class GaussianNoRegretProblem(ContNoRegretProblem):
-#     """ Continuous No-Regret problem for Gaussian loss functions """
-#     
-#     def __init__(self, domain, lossfuncs, Lbnd, M):
-#         """ Constructor for the basic problem class. Here lossfuncs is a 
-#             list of loss LossFunction objects. """
-#         super(GaussianNoRegretProblem, self).__init__(domain, lossfuncs, Lbnd, M)
-#         self.desc = 'Gaussian'
-#          
-#     def simulate_nogrid(self, N, etas='opt', Ngrid=100000):
-#         """ Simulates the result of running the No-Regret algorithm (N times).
-#             Returns a list of sequences of decisions and associated losses, one for each run.
-#             The grid here is only used to compute the optimal decisions, not the actions """
-#         if etas == 'opt': # use optimal choice of etas
-#             etas = compute_etaopt(self.domain, self.M, self.T)*np.ones(self.T)
-#         actions, losses, cumloss, regrets = [], [], [], []
-#         gridpoints = self.domain.grid(Ngrid)
-#         approxL = np.zeros(gridpoints.shape[0])
-#         for t, lossfunc in enumerate(self.lossfuncs): 
-#             print(t)
-#             if t == 0: # start off with a uniform draw from the domain, create mixture distr
-#                 action = Uniform(self.domain).sample(N)
-#                 mixdistr = MixtureDistribution([lossfunc.p], [1])
-#             else: # after first observation sample from mixture distribution
-#                 action = ExpifiedMixture(mixdistr, etas[t]).sample(N)
-#                 mixdistr.append(lossfunc.p, 1)
-#             actions.append(action)
-#             loss = lossfunc.val(action)
-#             losses.append(loss)
-#             if t == 0:
-#                 cumloss.append(loss)
-#             else:
-#                 cumloss.append(cumloss[-1] + loss)
-#             # compute and append regret -- resort to gridding for now
-#             approxL += lossfunc.val(gridpoints)
-#             optval = np.min(approxL)
-#             regrets.append(cumloss[-1] - optval)
-#         return np.transpose(np.array(actions), (1,0,2)), np.transpose(np.array(losses)), np.transpose(np.array(regrets))
-#         
-#         
-# class QuadraticNoRegretProblem(ContNoRegretProblem):
-#     """ Continuous No-Regret problem for Quadratic loss functions """
-#     
-#     def __init__(self, domain, quadlosses, Lbnd, M):
-#         """ Constructor for the basic problem class. Here lossfuncs is a 
-#             list of loss LossFunction objects. """
-#         self.domain, self.Lbnd, self.M = domain, Lbnd, M
-#         self.lossfuncs = quadlosses
-#         self.T = len(quadlosses)
-#         self.optaction, self.optval = None, None
-#         self.desc = 'Quadratic'
-#          
-#     def simulate_nogrid(self, N, etas='opt', Ngrid=None):
-#         """ Simulates the result of running the No-Regret algorithm (N times).
-#             Returns a list of sequences of decisions and associated losses, one for each run. """
-#         if etas == 'opt': # use optimal choice of etas
-#             etas = compute_etaopt(self.domain, self.M, self.T)*np.ones(self.T)
-#         actions, losses, cumloss, regrets = [], [], [], []
-#         Qcpd, bcpd, ccpd = np.zeros(self.lossfuncs[0].Q.shape), np.zeros(self.lossfuncs[0].Q.shape[0]), 0.0
-#         Qtilde, btilde = np.zeros(self.lossfuncs[0].Q.shape), np.zeros(self.lossfuncs[0].Q.shape[0])
-#         mutilde = None
-#         for t, lossfunc in enumerate(self.lossfuncs): 
-#             print(t)
-#             if t == 0: # start off with a uniform draw from the domain, create mixture distr
-#                 action = Uniform(self.domain).sample(N)
-#             else: # after first observation sample from mixture distribution
-#                 action = Gaussian(self.domain, mutilde, np.linalg.inv(Qtilde)).sample(N)
-#             # update matrices
-#             Qcpd = Qcpd + lossfunc.Q
-#             bcpd = bcpd - np.dot(lossfunc.Q, lossfunc.mu)
-#             ccpd = ccpd + 0.5*(2*lossfunc.c + np.dot(lossfunc.mu, np.dot(lossfunc.Q, lossfunc.mu)))
-#             Qtilde, btilde, ctilde = etas[t]*Qcpd, etas[t]*bcpd, etas[t]*ccpd
-#             mutilde = -np.linalg.solve(Qtilde, btilde)
-#             # append action and loss, this could be dome more efficiently
-#             actions.append(action)
-#             loss = lossfunc.val(action)
-#             losses.append(loss)
-#             if t == 0:
-#                 cumloss.append(loss)
-#             else:
-#                 cumloss.append(cumloss[-1] + loss)
-#             # compute and append regret
-#             optval = self.compute_minimum(Qcpd, bcpd, ccpd)
-#             regrets.append(cumloss[-1] - optval)
-#         return np.transpose(np.array(actions), (1,0,2)), np.transpose(np.array(losses)), np.transpose(np.array(regrets))        
-#     
-#     def compute_minimum(self, Q, b, c):
-#         mucpd = -np.linalg.solve(Q, b)
-#         if np.all(self.domain.iselement(np.array([mucpd], ndmin=2))):
-#             return c - 0.5*np.dot(b.T, np.linalg.solve(Q, b))
-#         else:
-#             if isinstance(self.domain, UnionOfDisjointRectangles):
-#                 print('CVXOPT CALLED!')
-#                 minval = np.Inf
-#                 solvers.options['show_progress'] = False
-#                 Qcvx = matrix(Q, tc='d')
-#                 bcvx = matrix(b, tc='d')
-#                 Gcvx = matrix([[1,-1,0,0], [0,0,1,-1]], tc='d')
-#                 for rect in self.domain.rects:
-#                     hcvx = matrix([rect.ub[0], -rect.lb[0], rect.ub[1], -rect.lb[1]], tc='d')
-#                     res = solvers.qp(Qcvx, bcvx, Gcvx, hcvx)
-#                     minval = min(minval, res['primal objective'])
-#                 print('CVXOPT SUCCESSFUL with return value {} and c= {}!'.format(minval,c))
-#                 return minval + c
-#             else:
-#                 raise NotImplementedError('Minimization on general non-convex sets not implemented yet')
-#     
-#     def compute_optimum(self):
-#         """ Computes the optimal decision in hindsight and the associated overall loss """
-#         # the minimum is achieved at the compound mean and the value is the compound offset
-#         Qcpd = np.sum(np.array([lossfunc.Q for lossfunc in self.lossfuncs]), axis=0)
-#         bcpd = -np.sum(np.array([np.dot(lossfunc.Q, lossfunc.mu) for lossfunc in self.lossfuncs]), axis=0)
-#         ccpd = 0.5*np.sum(np.array([2*lossfunc.c + np.dot(lossfunc.mu.T, np.dot(lossfunc.Q, lossfunc.mu)) 
-#                                     for lossfunc in self.lossfuncs]), axis=0)      
-#         return ccpd - 0.5*np.dot(bcpd.T, np.linalg.solve(Qcpd, bcpd))
-    
+def action_EWOO(cumLossFunc, alpha, ranges):
+    """ Function for computing the (single) action of the EWOO algorithm """
+    header = ['#include <math.h>\n\n',
+              'double alpha = {};\n'.format(alpha)]
+    func = cumLossFunc.gen_ccode()
+    ccode = header + func + ['   return exp(-alpha*loss);\n',
+                             '   }'] 
+    integr = ctypes_integrate(ccode, ranges)
+    actions = []
+    for i in range(cumLossFunc.domain.n):
+        footer = ['   return args[{}]*exp(-alpha*loss);\n'.format(i),
+                  '   }']  
+        ccode = header + func + footer
+        actions.append(ctypes_integrate(ccode, ranges)/integr)
+    return np.array(actions)
+
