@@ -10,8 +10,6 @@ from matplotlib import pyplot as plt
 from matplotlib import cm
 from scipy.stats import multivariate_normal
 from scipy.linalg import inv
-from .Domains import Rectangle
-from ContNoRegret.Domains import UnionOfDisjointRectangles
 
 
 class Distribution(object):

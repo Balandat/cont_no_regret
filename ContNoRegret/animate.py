@@ -61,6 +61,3 @@ def save_animation(results, frames=50, interval=20, directory=None, show=True):
             if show:
                 plt.show()
 
-
-
-
