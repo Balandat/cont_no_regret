@@ -11,11 +11,14 @@ from matplotlib import cm
 import mpl_toolkits.mplot3d.axes3d as p3
 import matplotlib.animation as animation
 
-def save_animation(results, frames=50, interval=20, directory=None, show=True):
+def save_animations(results, length=10, directory=None, show=False, **kwargs):
     """ Takes in a list of Result objects and creates and saves an animation of the 
-        evolution of the pdf over time. """
+        evolution of the pdf over time of total duration length seconds. """
     # save all result animations (for now)
     for r, result in enumerate(results):
+        T = result.problem.T
+        frames = T-1
+        interval = length/T*1000
         if result.algo == 'DA':
             # Creating figure, attaching 3D axis to the figure
             fig = plt.figure()
