@@ -26,6 +26,18 @@ class OmegaPotential(object):
     def phi_inv(self, u):
         """ Returns phi^{-1}(u), the inverse function of the zero-potential at the points u """
         return NotImplementedError
+    
+    def alpha_opt(self, n):
+        """ Returns the optimal decay parameter alpha in the learning rate 
+            eta_t = theta*t**(-alpha). Here n is the dimension of the space. """
+        return 1/(2 + n*self.bounds_asymp()[1])
+    
+    def theta_opt(self, domain, M):
+        """ Computes the optimal constant theta for the learning rate eta_t = theta*t**(-alpha). """
+        C, epsilon = self.bounds_asymp()
+        lpsi, pdual = self.l_psi()
+        n, v = domain.n, domain.v
+        return np.sqrt(C*lpsi*(1+n*epsilon)/M**2/v**epsilon/(2+n*epsilon))
      
     def phi_inv_prime(self, u):
         """ Returns phi^{-1}'(u), the first derivative of the inverse 
@@ -36,13 +48,16 @@ class OmegaPotential(object):
 class ExponentialPotential(OmegaPotential):
     """ The exponential potential, which results in Entropy Dual Averaging """
     
-    def __init__(self, desc='ExpPot'):
+    def __init__(self, omega=0, desc='ExpPot'):
         """ Constructor """
+        if self.omega > 0:
+            raise Exception('omega must be non-positive!')
+        self.omega = 0
         self.desc = desc
         
     def phi(self, u):
         """ Returns phi(u), the value of the zero-potential at the points u"""
-        return np.exp(u)
+        return np.exp(u - self.omega)
         
     def phi_prime(self, u):
         """ Returns phi'(u), the first derivative of the zero-potential at the points u """
@@ -54,17 +69,26 @@ class ExponentialPotential(OmegaPotential):
      
     def phi_inv(self, u):
         """ Returns phi^{-1}(u), the inverse function of the zero-potential at the points u """
-        return np.log(u)
+        return np.log(u - self.omega)
      
     def phi_inv_prime(self, u):
         """ Returns phi^{-1}'(u), the first derivative of the inverse 
             function of the zero-potential at the points u """
-        return 1/u
+        return 1/(u - self.omega)
     
     def isconvex(self):
         """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
         return True
     
+    def l_psi(self):
+        """ Returns the strong convexity constant l_psi and the corresponding norm 
+            of the Csizar divergence associated with the pNorm Potential. """
+        return 1/(1+self.omega), 1
+    
+    def theta_opt(self, domain, M):
+        """ Computes the optimal constant theta for the learning rate eta_t = theta*t**(-alpha). """
+        raise NotImplementedError
+       
     def gen_ccode(self):
         """ Generates a c-code snippet used for fast numerical integration """
         return ['   return exp(-eta*(loss + nu));}']
@@ -101,7 +125,12 @@ class IdentityPotential(OmegaPotential):
     def isconvex(self):
         """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
         return True
-   
+
+    def bounds_asymp(self):
+        """ Returns constants C and epsilon s.t. f_phi(x) <= C x**(1+epsilon) 
+            for all x >= 1. See Theorem 2 in paper for details. """
+        return 0.5, 1
+        
     def gen_ccode(self):
         """ Generates a c-code snippet used for fast numerical integration """
         return ['   double z = -eta*(loss + nu);\n',
@@ -147,6 +176,16 @@ class pNormPotential(OmegaPotential):
         """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
         return True 
 
+    def bounds_asymp(self):
+        """ Returns constants C and epsilon s.t. f_phi(x) <= C x**(1+epsilon) 
+            for all x >= 1. See Theorem 2 in paper for details. """
+        return 1/self.p, self.p - 1
+    
+    def l_psi(self):
+        """ Returns the strong convexity constant l_psi and the corresponding norm 
+            of the Csizar divergence associated with the pNorm Potential. """
+        return self.p-1, 2/(3-self.p)
+            
     def gen_ccode(self):
         """ Generates a c-code snippet used for fast numerical integration """
         return ['   double z = -eta*(loss + nu);\n',
@@ -157,8 +196,65 @@ class pNormPotential(OmegaPotential):
                 '   }']
 
 
+class FractionalLinearPotential(OmegaPotential):
+    """ A fractional-linear potential formed by stitching together a
+        fractional and a linear function """
+    
+    def __init__(self, gamma=2, u0=1, desc='FracLinPot'):
+        """ Constructor """
+        self.gamma, self.u0 = gamma, u0
+        self.c = (gamma-1)**(-1)
+        self.desc = desc + ', ' + r'$\gamma={{{}}}$'.format(gamma)
+        
+    def phi(self, u):
+        """ Returns phi(u), the value of the zero-potential at the points u"""
+        return ( (u<self.u0)*(1 + self.u0 - np.minimum(u, 1+self.u0))**(-self.gamma) + 
+                 (u>=self.u0)*(1 + self.gamma*(u - self.u0)) )
+        
+    def phi_prime(self, u):
+        """ Returns phi'(u), the first derivative of the zero-potential at the points u """
+        return ( (u<self.u0)*self.gamma*(1 + self.u0 - np.minimum(u,self.u0))**(-(1+self.gamma)) + 
+                 (u>=self.u0)*self.gamma )
+ 
+    def phi_double_prime(self, u):
+        """ Returns phi''(u), the second derivative of the zero-potential at the points u """
+        return (u<self.u0)*self.gamma*(1+self.gamma)*(1 + self.u0 - np.minimum(u,self.u0))**(-(2+self.gamma))
+     
+    def phi_inv(self, u):
+        """ Returns phi^{-1}(u), the inverse function of the zero-potential at the points u """
+        return (u<1)*(1 + self.u0 - np.minimum(u,1)**(-1/self.gamma)) + (u>=1)*(self.u0 + (u - 1)/self.gamma)
+     
+    def phi_inv_prime(self, u):
+        """ Returns phi^{-1}'(u), the first derivative of the inverse 
+            function of the zero-potential at the points u """
+        return 1/self.phi_prime(self.phi_inv(u))
+    
+    def isconvex(self):
+        """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
+        return True
+    
+    def bounds_asymp(self):
+        """ Returns constants C and epsilon s.t. f_phi(x) <= C x**(1+epsilon) 
+            for all x >= 1. See Theorem 2 in paper for details. """
+        return 1/2/self.gamma+self.u0, 1
+    
+    def l_psi(self):
+        """ Returns the strong convexity constant l_psi and the norm (1-norm / total variation norm)
+            of the Csizar divergence associated with the Linear Fractional Potential. """
+        return self.gamma, 1
+    
+    def gen_ccode(self):
+        """ Generates a c-code snippet used for fast numerical integration """
+        return ['   double z = -eta*(loss + nu);\n',
+                '   if(z<{}){{\n'.format(self.u0),
+                '     return pow(1.0 + {} - z, -{});}}\n'.format(self.u0, self.gamma),
+                '   else{\n',
+                '     return 1.0 + {}*(z - {});}}\n'.format(self.gamma, self.u0),
+                '   }']
+        
+
 class CompositePotential(OmegaPotential):
-    """ A composite omega potential formed by stitching together a
+    """ A composite zero potential formed by stitching together a
         fractional and a quadratic function """
     
     def __init__(self, gamma=2, desc='CompPot'):
@@ -200,7 +296,7 @@ class CompositePotential(OmegaPotential):
     def isconvex(self):
         """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
         return True
-    
+           
     def gen_ccode(self):
         """ Generates a c-code snippet used for fast numerical integration """
         return ['   double z = -eta*(loss + nu);\n',
@@ -245,6 +341,11 @@ class ExpPPotential(OmegaPotential):
     def isconvex(self):
         """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
         return True
+    
+    def bounds_asymp(self):
+        """ Returns constants C and epsilon s.t. f_phi(x) <= C x**(1+epsilon) 
+            for all x >= 1. See Theorem 2 in paper for details. """
+        return 1/self.p, self.p - 1
     
     def gen_ccode(self):
         """ Generates a c-code snippet used for fast numerical integration """
@@ -291,6 +392,11 @@ class PExpPotential(OmegaPotential):
     def isconvex(self):
         """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
         return True
+    
+    def bounds_asymp(self):
+        """ Returns constants C and epsilon s.t. f_phi(x) <= C x**(1+epsilon) 
+            for all x >= 1. See Theorem 2 in paper for details. """
+        return 1, 0
     
     def gen_ccode(self):
         """ Generates a c-code snippet used for fast numerical integration """
