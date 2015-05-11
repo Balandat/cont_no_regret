@@ -10,7 +10,6 @@ import pickle, os
 from matplotlib import pyplot as plt
 from scipy.stats import linregress 
 from .Domains import nBox
-from .animate import save_animation
 
 
 def compute_etaopt(dom, M, T):
@@ -103,7 +102,8 @@ def plot_results(results, offset=500, directory=None, show=True):
                                          result.regs_etas['tavg_perc_90'][i][offset:], color=ltavg[0].get_color(), alpha=0.15, rasterized=True)
                         plt.xlim((0, result.problem.T))
                         plt.figure(3)
-                        llogtavg = plt.plot(np.arange(1,result.problem.T+1), result.regs_etas['tsavg'][i], linewidth=2.0, label=result.label+' '+r' $\eta = {0:.3f}$'.format(eta), rasterized=True)
+                        llogtavg = plt.plot(np.arange(1,result.problem.T+1), result.regs_etas['tsavg'][i], linewidth=2.0, 
+                                            label=result.label+' '+r' $\eta = {0:.3f}$'.format(eta), rasterized=True)
                         plt.fill_between(np.arange(1,result.problem.T+1), result.regs_etas['tavg_perc_10'][i], 
                                          result.regs_etas['tavg_perc_90'][i], color=llogtavg[0].get_color(), alpha=0.15, rasterized=True) 
     #                     plt.plot(np.arange(1,result.problem.T+1), result.regs_etas['tsavgbnd'][i], '--', color=llogtavg[0].get_color(), linewidth=2, rasterized=True)     
@@ -126,7 +126,8 @@ def plot_results(results, offset=500, directory=None, show=True):
                                              label=result.label+' '+r' $\eta_t = {0} \cdot t^{{{1}}}$'.format(result.thetas[i], -alpha), rasterized=True)
                         plt.fill_between(np.arange(1,result.problem.T+1), result.regs_alphas['tavg_perc_10'][i], 
                                         result.regs_alphas['tavg_perc_90'][i], color=lltsavg[0].get_color(), alpha=0.15, rasterized=True)
-        #                     plt.plot(np.arange(1,result.problem.T+1), result.regs_alphas['tsavgbnd'][i], '--', color=lltsavg[0].get_color(), linewidth=2.0, rasterized=True) 
+                        plt.plot(np.arange(1,result.problem.T+1), result.regs_alphas['tsavgbnd'][i], '--', color=lltsavg[0].get_color(), 
+                                 linewidth=2.0, rasterized=True) 
                 except AttributeError: pass
             else:
                 plt.figure(1)
@@ -166,14 +167,9 @@ def plot_results(results, offset=500, directory=None, show=True):
             plt.show()
             
 
-def save_results(results, directory, create_anims=False):
+def save_results(results, directory):
     """ Serializes a results object for persistent storage using the pickle module. """ 
     os.makedirs(directory, exist_ok=True) # this could probably use a safer implementation
-    # try to display an animation of the whole thing
-    if create_anims:
-        T = results[0].problem.T
-        save_animation(results, frames=T-1, interval=10/T*1000, directory=directory)
-    # before saving the results let's remove the plot information (too much data)
     for result in results:
         try:
             del result.problem.pltpoints, result.problem.data
@@ -182,8 +178,8 @@ def save_results(results, directory, create_anims=False):
     pigglname = '{}{}_{}.piggl'.format(directory, results[0].problem.desc, 
                                        results[0].problem.lossfuncs[0].desc)    
     with open(pigglname, 'wb') as f:
-        pickle.dump(results, f, pickle.HIGHEST_PROTOCOL)
-
+        pickle.dump(results, f, pickle.HIGHEST_PROTOCOL)     
+ 
             
 def circular_tour(domain, N):
     """ Returns a sequence of N points that wander around in a circle
