@@ -16,7 +16,7 @@ from mpl_toolkits.mplot3d import axes3d
 from scipy.linalg import orth, eigh
 from scipy.integrate import nquad
 from scipy.stats import uniform, gamma
-from ContNoRegret.Domains import nBox, UnionOfDisjointnBoxes, DifferenceOfnBoxes
+from .Domains import nBox, UnionOfDisjointnBoxes, DifferenceOfnBoxes
 
 
 class LossFunction(object):
