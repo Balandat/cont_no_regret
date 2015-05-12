@@ -46,13 +46,14 @@ class OmegaPotential(object):
     
     
 class ExponentialPotential(OmegaPotential):
-    """ The exponential potential, which results in Entropy Dual Averaging """
+    """ The exponential potential, which results in Entropy Dual Averaging (HEDGE) """
     
     def __init__(self, omega=0, desc='ExpPot'):
         """ Constructor """
-        if self.omega > 0:
+        if omega > 0:
             raise Exception('omega must be non-positive!')
         self.omega = 0
+        self.c_omega, self.d_omega = 1+np.log(1-omega), (1-omega)*np.log(1-omega)
         self.desc = desc
         
     def phi(self, u):
