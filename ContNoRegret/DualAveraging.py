@@ -13,16 +13,17 @@ from scipy.optimize import brentq
 from scipy.integrate import nquad
 from .Domains import nBox, UnionOfDisjointnBoxes, DifferenceOfnBoxes
 from .Potentials import ExponentialPotential
+import matplotlib.pyplot as plt
 
 
 def compute_nustar(dom, potential, eta, Loss, M, nu_prev, eta_prev, t, 
                    pid='0', tmpfolder='libs/'):
     """ Determines the normalizing nustar for the dual-averaging update """      
-    with open('{}/tmplib{}.c'.format(tmpfolder,pid), 'w') as file:
+    with open('{}tmplib{}.c'.format(tmpfolder,pid), 'w') as file:
         file.writelines(generate_ccode(dom, potential, eta, Loss))
     call(['gcc', '-shared', '-o', '{}tmplib{}.dylib'.format(tmpfolder,pid), 
           '-fPIC', '{}tmplib{}.c'.format(tmpfolder,pid)])
-    lib = ctypes.CDLL('{}/tmplib{}.dylib'.format(tmpfolder,pid))
+    lib = ctypes.CDLL('{}tmplib{}.dylib'.format(tmpfolder,pid))
     lib.f.restype = ctypes.c_double
     lib.f.argtypes = (ctypes.c_int, ctypes.c_double)
     # compute the bounds for the root finding method for mu*
@@ -43,15 +44,16 @@ def compute_nustar(dom, potential, eta, Loss, M, nu_prev, eta_prev, t,
                 integral = np.sum([nquad(lib.f, rng, [0])[0] for rng in ranges])
                 nustar = np.log(integral)/eta
             else:
-                f = lambda nu: np.sum([nquad(lib.f, rng, [nu])[0] for rng in ranges]) - 1
+                f = lambda nu: np.sum([nquad(lib.f, rng, args=[nu])[0] for rng in ranges]) - 1
                 success = False
                 while not success:
                     try:
                         nustar = brentq(f, a, b)
                         success = True
                     except ValueError:
-                        a, b = a - 20, b + 20
                         print('WARINING: PROCESS {} HAS ENCOUNTERED f(a)!=f(b)!'.format(pid))
+                        a, b = a - 20, b + 20
+            
         elif isinstance(dom, DifferenceOfnBoxes):
             if isinstance(potential, ExponentialPotential):
                 # in this case we don't have to search for nustar, we can find it (semi-)explicitly
@@ -74,8 +76,8 @@ def compute_nustar(dom, potential, eta, Loss, M, nu_prev, eta_prev, t,
         return nustar
     finally: 
         dlclose(lib._handle) # this is to release the lib, so we can import the new version
-        os.remove('{}/tmplib{}.c'.format(tmpfolder,pid)) # clean up
-        os.remove('{}/tmplib{}.dylib'.format(tmpfolder,pid)) # clean up
+        os.remove('{}tmplib{}.c'.format(tmpfolder,pid)) # clean up
+        os.remove('{}tmplib{}.dylib'.format(tmpfolder,pid)) # clean up
 
 
 def generate_ccode(dom, potential, eta, Loss):
