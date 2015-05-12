@@ -346,5 +346,7 @@ def hollowbox(n, ratio=0.5):
         hollow cube to that of the outer cube. """
     a = (1 - ratio)**(-1/n)
     b = (ratio/(1-ratio))**(1/n)
-    return DifferenceOfnBoxes(nBox([(-0.5*a,0.5*a)]*n), [nBox([(-0.5*b,0.5*b)]*n)])
+    hbox = DifferenceOfnBoxes(nBox([(-0.5*a,0.5*a)]*n), [nBox([(-0.5*b,0.5*b)]*n)])
+    hbox.v = 0.5*(a-b)*a**(n-1)
+    return hbox
 
