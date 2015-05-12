@@ -25,15 +25,17 @@ def save_animations(results, length=10, directory=None, show=False, **kwargs):
             ax = p3.Axes3D(fig)
             
             pltpoints = result.problem.pltpoints
-            if pltpoints.shape[1] != 2:
-                raise Exception('Can plot densities only for dimension d=2!')
-            data = result.problem.data
-            
+            data = np.array(result.problem.data)
+
             # Extract some information for the plots
             bbox = result.problem.domain.bbox()
-            zmax = np.max(data)   
+            # idk why the FUCK this does not work just using np arrays!
+            zmax = np.max([np.max([np.max(df) for df in dflat]) for dflat in data])
+            zmin = np.min([np.min([np.min(df) for df in dflat]) for dflat in data])
+            
             # create initial object
-            plot = ax.plot_trisurf(pltpoints[:,0], pltpoints[:,1], data[0], cmap=cm.jet)
+            for points,dat in zip(pltpoints, data[0]):      
+                plot = ax.plot_trisurf(points[:,0], points[:,1], dat, cmap=cm.jet, vmin=zmin, vmax=zmax)
             # Setting the axes properties
             ax.set_xlim3d(bbox.bounds[0])
             ax.set_xlabel('$s_1$')
@@ -45,7 +47,8 @@ def save_animations(results, length=10, directory=None, show=False, **kwargs):
             
             def update_plot(framenum, data, plot):
                 ax.clear()
-                plot = ax.plot_trisurf(pltpoints[:,0], pltpoints[:,1], data[framenum], cmap=cm.jet, linewidth=0)
+                for points,dat in zip(pltpoints, data[framenum]):
+                    plot = ax.plot_trisurf(points[:,0], points[:,1], dat, linewidth=0, cmap=cm.jet, vmin=zmin, vmax=zmax)
                 ax.set_xlim3d(bbox.bounds[0])
                 ax.set_xlabel('$s_1$')
                 ax.set_ylim3d(bbox.bounds[1])
