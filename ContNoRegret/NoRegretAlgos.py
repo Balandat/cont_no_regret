@@ -6,17 +6,17 @@ Basic Algorithms for the Continuous No-Regret Problem.
 '''
 
 import numpy as np
-from .LossFunctions import ZeroLossFunction, ctypes_integrate
+from .LossFunctions import ZeroLossFunction, AffineLossFunction, ctypes_integrate
 from .utils import compute_etaopt 
-from .DualAveraging import compute_nustar
+from .DualAveraging import compute_nustar, sample_BoxAffHedge
+from .NLopt import quicksample
 from .Domains import nBox, UnionOfDisjointnBoxes, DifferenceOfnBoxes
 from .Potentials import ExponentialPotential
 from scipy.stats import linregress
   
 
 class ContNoRegretProblem(object):
-    """ Basic class describing a Continuous No-Regret problem. This implementation for now
-        assumes that the loss functions have "distr" class variable that is a Distribution object """
+    """ Basic class describing a Continuous No-Regret problem. """
     
     def __init__(self, domain, lossfuncs, L, M, desc='nodesc'):
         """ Constructor for the basic problem class. Here lossfuncs 
@@ -191,11 +191,15 @@ class ContNoRegretProblem(object):
                     action = self.domain.sample_uniform(N)
                     self.data.append([np.ones(pltpoints.shape[0])/self.domain.volume for pltpoints in self.pltpoints])
                 else:
-                    nustar = compute_nustar(self.domain, pot, etas[t], cumLossFunc, self.M, nustar, 
-                                            etas[t-1], t, pid=kwargs['pid'], tmpfolder=kwargs['tmpfolder'])
-                    weights = np.maximum(pot.phi(-etas[t]*(approxL + nustar)), 0)
-                    # let us plot the probability distribution
-                    action = gridpoints[np.random.choice(weights.shape[0], size=N, p=weights/np.sum(weights))]
+                    if (isinstance(cumLossFunc, AffineLossFunction) and isinstance(pot, ExponentialPotential) and
+                        isinstance(self.domain, nBox) or isinstance(self.domain, UnionOfDisjointnBoxes)):
+                        action = quicksample(np.array(self.domain.bounds), np.repeat(np.array(cumLossFunc.a, ndmin=2), N, axis=0), etas[t])
+                    else:
+                        nustar = compute_nustar(self.domain, pot, etas[t], cumLossFunc, self.M, nustar, 
+                                                etas[t-1], t, pid=kwargs['pid'], tmpfolder=kwargs['tmpfolder'])
+                        weights = np.maximum(pot.phi(-etas[t]*(approxL + nustar)), 0)
+                        # let us plot the probability distribution
+                        action = gridpoints[np.random.choice(weights.shape[0], size=N, p=weights/np.sum(weights))]
                     self.data.append([np.maximum(pot.phi(-etas[t]*(cumLossFunc.val(pltpoints) + nustar)), 0) for pltpoints in self.pltpoints])
             elif algo == 'ONS': # Hazan's Online Newton Step
                 if t == 0: 
