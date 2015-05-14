@@ -21,21 +21,19 @@ def regret_bound_const(dom, eta, T, L, M):
     diameter = dom.compute_parameters()[0]
     return M**2*eta/8 + L*diameter/T + (dom.n*np.log(T) - np.log(dom.v))/eta/T
        
-def regret_bounds(dom, theta, alpha, L, M, Tmax, algo):
-    """ Computes vector of regret bounds for t=1,...,Tmax """
-    diameter = dom.compute_parameters()[0]
-    t = np.arange(Tmax) + 1
-    if algo == 'hedge':
-        return (M**2*theta/8/(1-alpha)/(t**alpha) + L*diameter/t 
-                        + (dom.n*np.log(t) - np.log(dom.v))/(theta*t**(1-alpha)))
-    else:
-        raise NotImplementedError
-#         if algo == 'greedy':
-#         return diameter**2/2/(t**(1-alpha)) + L**2/2/(1-alpha)/(t**alpha)
-       
-def DA_regret_bounds(dom, theta, alpha, L, M, Tmax, potential):
-    raise NotImplementedError
-       
+# def regret_bounds(dom, theta, alpha, L, M, Tmax, algo):
+#     """ Computes vector of regret bounds for t=1,...,Tmax """
+#     diameter = dom.compute_parameters()[0]
+#     t = np.arange(Tmax) + 1
+#     if algo == 'hedge':
+#         return (M**2*theta/8/(1-alpha)/(t**alpha) + L*diameter/t 
+#                         + (dom.n*np.log(t) - np.log(dom.v))/(theta*t**(1-alpha)))
+#     else:
+#         raise NotImplementedError
+# #         if algo == 'greedy':
+# #         return diameter**2/2/(t**(1-alpha)) + L**2/2/(1-alpha)/(t**alpha)
+#        
+
     
 def estimate_loglog_slopes(tsavg_regret, N):
     """ Estimates slope, intercept and r_value of the asymptotic log-log plot
