@@ -112,11 +112,11 @@ class AffineLossFunction(LossFunction):
     def max(self, grad=False):
         """ Compute the maximum of the loss function over the domain. """
         if isinstance(self.domain, nBox):
-            M = self.b + np.sum([np.maximum(self.a*bnd[0], self.a*bnd[1]) for bnd in self.bounds])
+            M = self.b + np.sum([np.maximum(self.a*bnd[0], self.a*bnd[1]) for bnd in self.domain.bounds])
         elif isinstance(self.domain, UnionOfDisjointnBoxes):
-            M = self.b + np.max([np.sum([np.maximum(self.a*bnd[0], self.a*bnd[1]) for bnd in nbox.bounds]) for nbox in self.nboxes])
+            M = self.b + np.max([np.sum([np.maximum(self.a*bnd[0], self.a*bnd[1]) for bnd in nbox.bounds]) for nbox in self.domain.nboxes])
         elif isinstance(self.domain, DifferenceOfnBoxes):
-            M = self.b + np.sum([np.maximum(self.a*bnd[0], self.a*bnd[1]) for bnd in self.outer.bounds])
+            M = self.b + np.sum([np.maximum(self.a*bnd[0], self.a*bnd[1]) for bnd in self.domain.outer.bounds])
         else:
             raise Exception(('Sorry, for now only nBox, UnionOfDisjointnBoxes and DifferenceOfnBoxes '
                              + 'are supported for computing minimum and maximum of AffineLossFunctions'))
@@ -238,7 +238,7 @@ class QuadraticLossFunction(LossFunction):
     def min(self):
         """ Compute the minimum of the loss function over the domain. """
         try:
-            return self.bounds['max']
+            return self.bounds['min']
         except (KeyError, AttributeError) as e:
             if (isinstance(self.domain, nBox) or isinstance(self.domain, UnionOfDisjointnBoxes)
                 or isinstance(self.domain, DifferenceOfnBoxes)):
