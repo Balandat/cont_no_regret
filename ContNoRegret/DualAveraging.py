@@ -87,4 +87,7 @@ def generate_ccode(dom, potential, eta, Loss):
     header = ['#include <math.h>\n\n',
               'double eta = {};\n'.format(eta)]
     return header + Loss.gen_ccode() + potential.gen_ccode()
+
+
+
     

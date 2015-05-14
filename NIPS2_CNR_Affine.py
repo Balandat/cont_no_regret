@@ -52,7 +52,7 @@ lossfuncs, M = random_AffineLosses(dom, Lbnd, T, d=2)
 prob = ContNoRegretProblem(dom, lossfuncs, Lbnd, M, desc=desc)
   
 # Select a number of potentials for the Dual Averaging algorithm
-potentials = [ExponentialPotential(), pNormPotential(1.25), pNormPotential(1.75)]
+potentials = [ExponentialPotential()]#, pNormPotential(1.25), pNormPotential(1.75)]
   
 # the following runs fine if the script is the __main__ method, but crashes when running from ipython
 pool = mp.Pool(processes=mp.cpu_count()-1)
@@ -62,9 +62,9 @@ DAkwargs = [{'opt_rate':True, 'Ngrid':Ngrid, 'potential':pot, 'pid':i,
              'tmpfolder':tmpfolder, 'label':pot.desc} for i,pot in enumerate(potentials)]
 processes += [pool.apply_async(CNR_worker, (prob, N, 'DA'), kwarg) for kwarg in DAkwargs]
   
-GPkwargs = {'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'GP'}
-processes.append(pool.apply_async(CNR_worker, (prob, N, 'GP'), GPkwargs))
-  
+# GPkwargs = {'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'GP'}
+# processes.append(pool.apply_async(CNR_worker, (prob, N, 'GP'), GPkwargs))
+
 # wait for the processes to finish an collect the results
 results = [process.get() for process in processes]
   

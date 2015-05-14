@@ -28,7 +28,7 @@ show_plots = True
 save_anims = False
 show_anims = False
 
-T = 500 # Time horizon
+T = 2500 # Time horizon
 M = 10.0 # Uniform bound on the function (in the dual norm)
 Lbnd = 5.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
@@ -48,9 +48,9 @@ with open(__file__, 'r') as f:
 # lossfuncs, Mnew, lambdamax = random_QuadraticLosses(dom, mus, Lbnd, M, pd=False, H=H)
 # alpha_ec = H/dom.diameter/lambdamax
 
-testfunc = QuadraticLossFunction(dom, [0.25,0.25], np.array([[-2,0.5],[0.5,-1]]), 0)
+testfunc = QuadraticLossFunction(dom, [0.25,0.25], np.array([[2,0.5],[0.5,2]]), 0)
 c = testfunc.min()
-lossfuncs = [QuadraticLossFunction(dom, [0.25,0.25], np.array([[-2,0.5],[0.5,-1]]), -c) for t in range(T)]
+lossfuncs = [QuadraticLossFunction(dom, [0.25,0.25], np.array([[2,0.5],[0.5,2]]), -c) for t in range(T)]
 alpha_ec = H/dom.diameter/2
 
 # # compute bounds on the norms
@@ -62,7 +62,7 @@ alpha_ec = H/dom.diameter/2
 prob = ContNoRegretProblem(dom, lossfuncs, Lbnd, M, desc=desc)
   
 # Select a number of potentials for the Dual Averaging algorithm
-potentials = [ExponentialPotential()]#, pNormPotential(1.25), pNormPotential(1.75)]
+potentials = [ExponentialPotential(), pNormPotential(1.25), pNormPotential(1.75)]
   
 # the following runs fine if the script is the __main__ method, but crashes when running from ipython
 pool = mp.Pool(processes=mp.cpu_count()-1)
