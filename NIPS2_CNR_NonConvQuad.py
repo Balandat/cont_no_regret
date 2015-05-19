@@ -24,11 +24,11 @@ tmpfolder = '/Volumes/tmp/' # if possible, choose this to be a RamDisk
 
 # some flags for keeping a record of the simulation parameters
 save_res = True
-show_plots = False
-save_anims = True
+show_plots = True
+save_anims = False
 show_anims = False
 
-T = 2500 # Time horizon
+T = 750 # Time horizon
 M = 10.0 # Uniform bound on the function (in the dual norm)
 Lbnd = 5.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
@@ -42,7 +42,7 @@ with open(__file__, 'r') as f:
     
 # # Now create some random loss functions
 mus = circular_tour(dom, T)
-lossfuncs, Mnew, lambdamax = random_QuadraticLosses(dom, mus, Lbnd, M, pd=True, H=H)
+lossfuncs, Mnew, lambdamax = random_QuadraticLosses(dom, mus, Lbnd, M, pd=False, H=H)
 alpha_ec = H/dom.diameter/lambdamax
 
 # # compute bounds on the norms
@@ -54,7 +54,8 @@ alpha_ec = H/dom.diameter/lambdamax
 prob = ContNoRegretProblem(dom, lossfuncs, Lbnd, M, desc=desc)
   
 # Select a number of potentials for the Dual Averaging algorithm
-potentials = [ExponentialPotential(), ExponentialPotential(omega=-0.5), pNormPotential(1.25), pNormPotential(1.75)]
+potentials = [ExponentialPotential(), pNormPotential(1.25), pNormPotential(1.75),
+              FractionalLinearPotential(1.25), FractionalLinearPotential(2.5), FractionalLinearPotential(5)]
   
 # the following runs fine if the script is the __main__ method, but crashes when running from ipython
 pool = mp.Pool(processes=mp.cpu_count()-1)

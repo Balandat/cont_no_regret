@@ -28,9 +28,9 @@ show_plots = True
 save_anims = False
 show_anims = False
 
-T = 2500 # Time horizon
+T = 7500 # Time horizon
 M = 10.0 # Uniform bound on the function (in the dual norm)
-Lbnd = 5.0 # Uniform bound on the Lipschitz constant
+L = 5.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
 Ngrid = 250000 # Number of gridpoints for the sampling step
 H = 0.1 # strict convexity parameter (lower bound on evals of Q)
@@ -40,18 +40,20 @@ dom = unitbox(2)
 with open(__file__, 'r') as f:
     thisfile = f.read()
     
-# # Now create some random loss functions
+# Now create some random loss functions
 # mus_circ = circular_tour(dom, T)
-# mus_random = dom.sample_uniform(T)
-# epsilon = 1.0
+mus_random = dom.sample_uniform(T)
+epsilon = 1.0
 # mus = ((1-epsilon)*mus_circ + epsilon*mus_random)
-# lossfuncs, Mnew, lambdamax = random_QuadraticLosses(dom, mus, Lbnd, M, pd=False, H=H)
-# alpha_ec = H/dom.diameter/lambdamax
+lossfuncs, Mnew, lambdamax = random_QuadraticLosses(dom, mus_random, L, M, pd=True, H=H)
+alpha_ec = H/dom.diameter/lambdamax
+M2 = np.max([lossfunc.norm(2, tmpfolder=tmpfolder) for lossfunc in lossfuncs])
 
-testfunc = QuadraticLossFunction(dom, [0.25,0.25], np.array([[2,0.5],[0.5,2]]), 0)
-c = testfunc.min()
-lossfuncs = [QuadraticLossFunction(dom, [0.25,0.25], np.array([[2,0.5],[0.5,2]]), -c) for t in range(T)]
-alpha_ec = H/dom.diameter/2
+
+# testfunc = QuadraticLossFunction(dom, [0.25,0.25], np.array([[2,0.5],[0.5,2]]), 0)
+# c = testfunc.min()
+# lossfuncs = [QuadraticLossFunction(dom, [0.25,0.25], np.array([[2,0.5],[0.5,2]]), -c) for t in range(T)]
+# alpha_ec = H/dom.diameter/2
 
 # # compute bounds on the norms
 # normbounds = {'{}'.format(p): [lossfunc.norm(p, tmpfolder=tmpfolder) for lossfunc in lossfuncs] for p in [1,2,np.Infinity]}
@@ -59,10 +61,11 @@ alpha_ec = H/dom.diameter/2
 # print(normmax)
   
 # create Continuous No-Regret problem
-prob = ContNoRegretProblem(dom, lossfuncs, Lbnd, M, desc=desc)
+prob = ContNoRegretProblem(dom, lossfuncs, L, Mnew, desc=desc)
   
-# Select a number of potentials for the Dual Averaging algorithm
-potentials = [ExponentialPotential(), pNormPotential(1.25), pNormPotential(1.75)]
+# # Select a number of potentials for the Dual Averaging algorithm
+potentials = [ExponentialPotential(), pNormPotential(2, M=M2)]
+# potentials = [FractionalLinearPotential(1), pNormPotential(2)]
   
 # the following runs fine if the script is the __main__ method, but crashes when running from ipython
 pool = mp.Pool(processes=mp.cpu_count()-1)
@@ -74,16 +77,16 @@ processes += [pool.apply_async(CNR_worker, (prob, N, 'DA'), kwarg) for kwarg in 
     
 GPkwargs = {'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'GP'}
 processes.append(pool.apply_async(CNR_worker, (prob, N, 'GP'), GPkwargs))
-  
+    
 OGDkwargs = {'H':H, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'OGD'}
 processes.append(pool.apply_async(CNR_worker, (prob, N, 'OGD'), OGDkwargs))
-  
+    
 ONSkwargs = {'alpha':alpha_ec, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'ONS'}
 processes.append(pool.apply_async(CNR_worker, (prob, N, 'ONS'), ONSkwargs)) 
- 
+   
 FTALkwargs = {'alpha':alpha_ec, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'FTAL'}
 processes.append(pool.apply_async(CNR_worker, (prob, N, 'FTAL'), FTALkwargs))
-
+  
 EWOOkwargs = {'alpha':alpha_ec, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'EWOO'}
 processes.append(pool.apply_async(CNR_worker, (prob, N, 'EWOO'), EWOOkwargs))
 

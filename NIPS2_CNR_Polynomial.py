@@ -25,10 +25,10 @@ tmpfolder = '/Volumes/tmp/' # if possible, choose this to be a RamDisk
 # some flags for keeping a record of the simulation parameters
 save_res = True
 show_plots = True
-save_anims = True
+save_anims = False
 show_anims = False
 
-T = 200 # Time horizon
+T = 2500 # Time horizon
 M = 10.0 # Uniform bound on the function (in the dual norm)
 L = 5.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
@@ -53,7 +53,8 @@ lossfuncs = random_PolynomialLosses(dom, T, M, L, 3, [0,1,2,3])
 prob = ContNoRegretProblem(dom, lossfuncs, L, M, desc=desc)
   
 # Select a number of potentials for the Dual Averaging algorithm
-potentials = [ExponentialPotential()]#, pNormPotential(1.25), pNormPotential(1.75)]
+potentials = [ExponentialPotential(), pNormPotential(1.25), pNormPotential(1.75),
+              FractionalLinearPotential(1.25), FractionalLinearPotential(2.5), FractionalLinearPotential(10)]
   
 # the following runs fine if the script is the __main__ method, but crashes when running from ipython
 pool = mp.Pool(processes=mp.cpu_count()-1)

@@ -30,7 +30,7 @@ show_anims = False
 
 T = 500 # Time horizon
 M = 10.0 # Uniform bound on the function (in the dual norm)
-Lbnd = 5.0 # Uniform bound on the Lipschitz constant
+Lbnd = 15.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
 Ngrid = 250000 # Number of gridpoints for the sampling step
 dom = unitbox(2)
@@ -43,16 +43,16 @@ with open(__file__, 'r') as f:
 # d=2 means sampling the a vector uniformly at random from {x : ||x||_2<L}}
 lossfuncs, M = random_AffineLosses(dom, Lbnd, T, d=2)
 
-# # compute bounds on the norms
-# normbounds = {'{}'.format(p): [lossfunc.norm(p, tmpfolder=tmpfolder) for lossfunc in lossfuncs] for p in [1,2,np.Infinity]}
-# normmax = {key:np.max(val) for key,val in normbounds.items()}
-# print(normmax)
+# compute bounds on the norms
+normbounds = {'{}'.format(p): [lossfunc.norm(p, tmpfolder=tmpfolder) for lossfunc in lossfuncs] for p in [1,2,np.Infinity]}
+normmax = {key:np.max(val) for key,val in normbounds.items()}
+print(normmax)
   
 # create Continuous No-Regret problem
 prob = ContNoRegretProblem(dom, lossfuncs, Lbnd, M, desc=desc)
   
 # Select a number of potentials for the Dual Averaging algorithm
-potentials = [ExponentialPotential()]#, pNormPotential(1.25), pNormPotential(1.75)]
+potentials = [ExponentialPotential(), FractionalLinearPotential(1.5), FractionalLinearPotential(2), FractionalLinearPotential(3)]#, pNormPotential(1.25), pNormPotential(1.75)]
   
 # the following runs fine if the script is the __main__ method, but crashes when running from ipython
 pool = mp.Pool(processes=mp.cpu_count()-1)
