@@ -15,24 +15,12 @@ from .Domains import nBox, DifferenceOfnBoxes
 def compute_etaopt(dom, M, T):
     """ Computes the optimal learning rate for known time horizon T"""
     return np.sqrt(8*(dom.n*np.log(T) - np.log(dom.v))/T)/M
+
     
 def regret_bound_const(dom, eta, T, L, M):
     """ Computes the bound for the time-average regret for constant learning rates """
     diameter = dom.compute_parameters()[0]
     return M**2*eta/8 + L*diameter/T + (dom.n*np.log(T) - np.log(dom.v))/eta/T
-       
-# def regret_bounds(dom, theta, alpha, L, M, Tmax, algo):
-#     """ Computes vector of regret bounds for t=1,...,Tmax """
-#     diameter = dom.compute_parameters()[0]
-#     t = np.arange(Tmax) + 1
-#     if algo == 'hedge':
-#         return (M**2*theta/8/(1-alpha)/(t**alpha) + L*diameter/t 
-#                         + (dom.n*np.log(t) - np.log(dom.v))/(theta*t**(1-alpha)))
-#     else:
-#         raise NotImplementedError
-# #         if algo == 'greedy':
-# #         return diameter**2/2/(t**(1-alpha)) + L**2/2/(1-alpha)/(t**alpha)
-#        
 
     
 def estimate_loglog_slopes(tsavg_regret, N):
@@ -203,11 +191,18 @@ def plot_results(results, offset=500, directory=None, show=True):
 def save_results(results, directory):
     """ Serializes a results object for persistent storage using the pickle module. """ 
     os.makedirs(directory, exist_ok=True) # this could probably use a safer implementation
+    slope_txt = []
     for result in results:
         try:
+            [slope_txt.append('{}, Empirical: {}\n'.format(result.label, val[0])) for val in result.slopes.values()] 
+            [slope_txt.append('{}, Bounds: {}\n'.format(result.label, val[0])) for val in result.slopes_bnd.values()] 
             del result.problem.pltpoints, result.problem.data
         except AttributeError:
             pass
+    slopes_name = '{}{}_{}_slopes.txt'.format(directory, results[0].problem.desc, 
+                                       results[0].problem.lossfuncs[0].desc)
+    with open(slopes_name, 'w') as f:
+        f.writelines(slope_txt)
     pigglname = '{}{}_{}.piggl'.format(directory, results[0].problem.desc, 
                                        results[0].problem.lossfuncs[0].desc)    
     with open(pigglname, 'wb') as f:
