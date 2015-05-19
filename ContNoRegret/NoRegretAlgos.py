@@ -8,7 +8,7 @@ Basic Algorithms for the Continuous No-Regret Problem.
 import numpy as np
 from .LossFunctions import ZeroLossFunction, AffineLossFunction, ctypes_integrate
 from .utils import compute_etaopt 
-from .DualAveraging import compute_nustar, sample_BoxAffHedge
+from .DualAveraging import compute_nustar
 from .NLopt import quicksample
 from .Domains import nBox, UnionOfDisjointnBoxes, DifferenceOfnBoxes
 from .Potentials import ExponentialPotential
@@ -27,14 +27,9 @@ class ContNoRegretProblem(object):
         self.optaction, self.optval = None, None
         self.desc = desc
         self.data = []
-        self.pltpoints = self.create_pltpoints(1000)
-            
-#     def compute_regrets(self, losses):
-#         """ Computes the regrets (for each time step) for the given array of loss sequences """
-#         if not self.optval: 
-#             self.optval = self.compute_optimum()
-#         return (np.sum(losses, axis=1) - self.optval)/self.T
-       
+        if domain.n == 2:
+            self.pltpoints = self.create_pltpoints(1000)
+                   
     def cumulative_loss(self, points):
         """ Computes the cumulative loss at the given points """
         loss = np.zeros((points.shape[0], 1))
@@ -100,7 +95,11 @@ class ContNoRegretProblem(object):
                           'eta_t={0:.3f} sqrt(log t/t)'.format(theta))
                     etas = theta*np.sqrt(np.log(1+np.arange(self.T)+1)/(1+np.arange(self.T)))
                 else:
-                    alpha, theta = pot.alpha_opt(self.domain.n), pot.theta_opt(self.domain, self.M)
+                    try:
+                        M = pot.M
+                    except AttributeError:
+                        M = self.M
+                    alpha, theta = pot.alpha_opt(self.domain.n), pot.theta_opt(self.domain, M)
                     print('Simulating {0}, {1}, opt. rate '.format(algo, pot.desc) + 
                           'eta_t={0:.3f}t^(-{1:.3f})$'.format(theta, alpha))
                     etas = theta*(1+np.arange(self.T))**(-alpha)
@@ -189,7 +188,9 @@ class ContNoRegretProblem(object):
                     # compute nustar for warm-starting the intervals of root-finder
                     nustar = -1/etas[t]*pot.phi_inv(1/self.domain.volume)
                     action = self.domain.sample_uniform(N)
-                    self.data.append([np.ones(pltpoints.shape[0])/self.domain.volume for pltpoints in self.pltpoints])
+                    try:
+                        self.data.append([np.ones(pltpoints.shape[0])/self.domain.volume for pltpoints in self.pltpoints])
+                    except AttributeError: pass
                 else:
                     if (isinstance(cumLossFunc, AffineLossFunction) and isinstance(pot, ExponentialPotential) and
                         isinstance(self.domain, nBox) or isinstance(self.domain, UnionOfDisjointnBoxes)):
@@ -200,7 +201,9 @@ class ContNoRegretProblem(object):
                         weights = np.maximum(pot.phi(-etas[t]*(approxL + nustar)), 0)
                         # let us plot the probability distribution
                         action = gridpoints[np.random.choice(weights.shape[0], size=N, p=weights/np.sum(weights))]
-                    self.data.append([np.maximum(pot.phi(-etas[t]*(cumLossFunc.val(pltpoints) + nustar)), 0) for pltpoints in self.pltpoints])
+                    try:
+                        self.data.append([np.maximum(pot.phi(-etas[t]*(cumLossFunc.val(pltpoints) + nustar)), 0) for pltpoints in self.pltpoints])
+                    except AttributeError: pass
             elif algo == 'ONS': # Hazan's Online Newton Step
                 if t == 0: 
                     action = self.domain.sample_uniform(N) # pick arbitrary action in the first step, may as well sample
@@ -287,7 +290,11 @@ class ContNoRegretProblem(object):
             else:
                 lpsi, p_dualnorm = pot.l_psi()
                 C, epsilon = pot.bounds_asymp()
-                reg_bnd = (self.M**2*theta/lpsi/(1-alpha)*t**(-alpha)
+                try:
+                    M = pot.M
+                except AttributeError:
+                    M = self.M
+                reg_bnd = (M**2*theta/lpsi/(1-alpha)*t**(-alpha)
                            + (L*D + C/theta*v**(-epsilon))*t**(-(1-alpha)/(1+n*epsilon)))
         elif algo == 'GP':
             # for now assume eta_t = t**(-0.5)
@@ -324,25 +331,31 @@ class Results(object):
             except KeyError: pass
         else:
             self.regs_norate = kwargs['regs_{}'.format(self.algo)]
+        self.slopes, self.slopes_bnd = self.estimate_loglog_slopes()
             
-    def estimate_loglog_slopes(self, N=1000):
+    def estimate_loglog_slopes(self, N=125):
         """ Estimates slope, intercept and r_value of the asymptotic log-log plot
         for each element f tsavg_regert, using the N last data points """
         slopes, slopes_bnd = {}, {}
-        if self.etaopts:
+#         if N < self.problem.T:
+#             N = np.floor(self.problem.T/2)
+        try:
             slopes['etaopts'] = self.loglog_slopes(self.regs_etaopts['tsavg'], N)
             slopes_bnd['etaopts'] = self.loglog_slopes(self.regs_etaopts['tsavgbnd'], N)
-        if self.etas:   
+        except AttributeError: pass
+        try: 
             slopes['etas'] = self.loglog_slopes(self.regs_etas['tsavg'], N)
             slopes_bnd['etas'] = self.loglog_slopes(self.regs_etas['tsavgbnd'], N)
-        if self.alphas:
+        except AttributeError: pass
+        try:
             slopes['alphas'] = self.loglog_slopes(self.regs_alphas['tsavg'], N)
             slopes_bnd['alphas'] = self.loglog_slopes(self.regs_alphas['tsavgbnd'], N)
+        except AttributeError: pass
         try:
             slopes['{}'.format(self.algo)] = self.loglog_slopes(self.regs_norate['tsavg'], N)
             slopes_bnd['{}'.format(self.algo)] = self.loglog_slopes(self.regs_norate['tsavgbnd'], N)
         except AttributeError: pass
-        return slopes #, slopes_bnd
+        return slopes, slopes_bnd
         
     def loglog_slopes(self, regrets, N): 
         slopes = []
