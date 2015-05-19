@@ -145,12 +145,14 @@ class IdentityPotential(OmegaPotential):
 class pNormPotential(OmegaPotential):
     """ The potential phi(u) = sgn(u)*|u|**(1/(p-1)) """
     
-    def __init__(self, p, desc='pNormPot'):
+    def __init__(self, p, desc='pNormPot', **kwargs):
         """ Constructor """
         if (p<=1) or (p>2):
             raise Exception('Need 1 < p <=2 !') 
         self.p = p
         self.desc = desc + ', ' + r'$p={{{}}}$'.format(p)
+        if kwargs.get('M') is not None:
+            self.M = kwargs.get('M')
         
     def phi(self, u):
         """ Returns phi(u), the value of the pNorm-potential at the points u"""
@@ -204,22 +206,21 @@ class FractionalLinearPotential(OmegaPotential):
     def __init__(self, gamma=2, u0=1, desc='FracLinPot'):
         """ Constructor """
         self.gamma, self.u0 = gamma, u0
-        self.c = (gamma-1)**(-1)
         self.desc = desc + ', ' + r'$\gamma={{{}}}$'.format(gamma)
         
     def phi(self, u):
         """ Returns phi(u), the value of the zero-potential at the points u"""
-        return ( (u<self.u0)*(1 + self.u0 - np.minimum(u, 1+self.u0))**(-self.gamma) + 
+        return ( (u<self.u0)*np.maximum(1 + self.u0 - u, 1)**(-self.gamma) + 
                  (u>=self.u0)*(1 + self.gamma*(u - self.u0)) )
         
     def phi_prime(self, u):
         """ Returns phi'(u), the first derivative of the zero-potential at the points u """
-        return ( (u<self.u0)*self.gamma*(1 + self.u0 - np.minimum(u,self.u0))**(-(1+self.gamma)) + 
+        return ( (u<self.u0)*self.gamma*np.maximum(1 + self.u0 - u, 1)**(-(1+self.gamma)) + 
                  (u>=self.u0)*self.gamma )
  
     def phi_double_prime(self, u):
         """ Returns phi''(u), the second derivative of the zero-potential at the points u """
-        return (u<self.u0)*self.gamma*(1+self.gamma)*(1 + self.u0 - np.minimum(u,self.u0))**(-(2+self.gamma))
+        return (u<self.u0)*self.gamma*(1+self.gamma)*np.maximum(1 + self.u0 - u, 1)**(-(2+self.gamma))
      
     def phi_inv(self, u):
         """ Returns phi^{-1}(u), the inverse function of the zero-potential at the points u """
@@ -237,12 +238,12 @@ class FractionalLinearPotential(OmegaPotential):
     def bounds_asymp(self):
         """ Returns constants C and epsilon s.t. f_phi(x) <= C x**(1+epsilon) 
             for all x >= 1. See Theorem 2 in paper for details. """
-        return 1/2/self.gamma+self.u0, 1
+        return 1/self.gamma + self.u0, 1
     
     def l_psi(self):
         """ Returns the strong convexity constant l_psi and the norm (1-norm / total variation norm)
             of the Csizar divergence associated with the Linear Fractional Potential. """
-        return self.gamma, 1
+        return 1/self.gamma, 1
     
     def gen_ccode(self):
         """ Generates a c-code snippet used for fast numerical integration """
@@ -251,6 +252,63 @@ class FractionalLinearPotential(OmegaPotential):
                 '     return pow(1.0 + {} - z, -{});}}\n'.format(self.u0, self.gamma),
                 '   else{\n',
                 '     return 1.0 + {}*(z - {});}}\n'.format(self.gamma, self.u0),
+                '   }']
+        
+        
+class FractionalExponentialPotential(OmegaPotential):
+    """ A fractional-exponential potential formed by stitching together a
+        fractional and an exponential function """
+    
+    def __init__(self, gamma=2, u0=1, desc='FracExpPot'):
+        """ Constructor """
+        self.gamma, self.u0 = gamma, u0
+        self.desc = desc + ', ' + r'$\gamma={{{}}}$'.format(gamma)
+        
+    def phi(self, u):
+        """ Returns phi(u), the value of the zero-potential at the points u"""
+        return ( (u<self.u0)*np.maximum(1 + self.u0 - u, 1)**(-self.gamma) + 
+                 (u>=self.u0)*np.exp(self.gamma*(u - self.u0)) )
+        
+    def phi_prime(self, u):
+        """ Returns phi'(u), the first derivative of the zero-potential at the points u """
+        return ( (u<self.u0)*self.gamma*np.maximum(1 + self.u0 - u, 1)**(-(1+self.gamma)) + 
+                 (u>=self.u0)*self.gamma*np.exp(self.gamma*(u - self.u0)) )
+ 
+    def phi_double_prime(self, u):
+        """ Returns phi''(u), the second derivative of the zero-potential at the points u """
+        return ( (u<self.u0)*self.gamma*(1+self.gamma)*np.maximum(1 + self.u0 - u, 1)**(-(2+self.gamma)) 
+                 + (u>=self.u0)*self.gamma**2*np.exp(self.gamma*(u - self.u0)) )
+     
+    def phi_inv(self, u):
+        """ Returns phi^{-1}(u), the inverse function of the zero-potential at the points u """
+        return (u<1)*(1 + self.u0 - np.minimum(u,1)**(-1/self.gamma)) + (u>=1)*(self.u0 + np.log(u)/self.gamma)
+     
+    def phi_inv_prime(self, u):
+        """ Returns phi^{-1}'(u), the first derivative of the inverse 
+            function of the zero-potential at the points u """
+        return 1/self.phi_prime(self.phi_inv(u))
+    
+    def isconvex(self):
+        """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
+        return True
+    
+    def bounds_asymp(self):
+        """ Returns constants C and epsilon s.t. f_phi(x) <= C x**(1+epsilon) 
+            for all x >= 1. See Theorem 2 in paper for details. """
+        return 1/self.gamma+self.u0, 0
+    
+    def l_psi(self):
+        """ Returns the strong convexity constant l_psi and the norm (1-norm / total variation norm)
+            of the Csizar divergence associated with the Linear Fractional Potential. """
+        return 1/self.gamma, 1
+    
+    def gen_ccode(self):
+        """ Generates a c-code snippet used for fast numerical integration """
+        return ['   double z = -eta*(loss + nu);\n',
+                '   if(z<{}){{\n'.format(self.u0),
+                '     return pow(1.0 + {} - z, -{});}}\n'.format(self.u0, self.gamma),
+                '   else{\n',
+                '     return exp({}*(z-{}));}}\n'.format(self.gamma, self.u0),
                 '   }']
         
 
