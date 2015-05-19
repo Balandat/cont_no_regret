@@ -2,28 +2,27 @@
 Core functionality for the dual averaging no-regret work
 
 @author: Maximilian Balandat
-@date: May 8, 2015
+@date: May 19, 2015
 '''
 
 import numpy as np
-import os, ctypes
+import os, ctypes, uuid
 from _ctypes import dlclose
 from subprocess import call
 from scipy.optimize import brentq
 from scipy.integrate import nquad
 from .Domains import nBox, UnionOfDisjointnBoxes, DifferenceOfnBoxes
 from .Potentials import ExponentialPotential
-import matplotlib.pyplot as plt
 
 
 def compute_nustar(dom, potential, eta, Loss, M, nu_prev, eta_prev, t, 
                    pid='0', tmpfolder='libs/'):
-    """ Determines the normalizing nustar for the dual-averaging update """      
-    with open('{}tmplib{}.c'.format(tmpfolder,pid), 'w') as file:
-        file.writelines(generate_ccode(dom, potential, eta, Loss))
-    call(['gcc', '-shared', '-o', '{}tmplib{}.dylib'.format(tmpfolder,pid), 
-          '-fPIC', '{}tmplib{}.c'.format(tmpfolder,pid)])
-    lib = ctypes.CDLL('{}tmplib{}.dylib'.format(tmpfolder,pid))
+    """ Determines the normalizing nustar for the dual-averaging update """    
+    tmpfile = '{}{}'.format(tmpfolder, str(uuid.uuid4()))
+    with open(tmpfile+'.c', 'w') as file:
+        file.writelines(generate_ccode(dom, potential, eta, Loss)) 
+    call(['gcc', '-shared', '-o', tmpfile+'.dylib', '-fPIC', tmpfile+'.c'])
+    lib = ctypes.CDLL(tmpfile+'.dylib')
     lib.f.restype = ctypes.c_double
     lib.f.argtypes = (ctypes.c_int, ctypes.c_double)
     # compute the bounds for the root finding method for mu*
@@ -76,8 +75,10 @@ def compute_nustar(dom, potential, eta, Loss, M, nu_prev, eta_prev, t,
         return nustar
     finally: 
         dlclose(lib._handle) # this is to release the lib, so we can import the new version
-        os.remove('{}tmplib{}.c'.format(tmpfolder,pid)) # clean up
-        os.remove('{}tmplib{}.dylib'.format(tmpfolder,pid)) # clean up
+        try:
+            os.remove(tmpfile+'.c') # clean up
+            os.remove(tmpfile+'.dylib') # clean up
+        except FileNotFoundError: pass
 
 
 def generate_ccode(dom, potential, eta, Loss):

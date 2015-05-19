@@ -7,7 +7,7 @@ functions for the Continuous No Regret Problem.
 '''
 
 import numpy as np
-import os, ctypes
+import os, ctypes, uuid
 from _ctypes import dlclose
 from subprocess import call
 from matplotlib import pyplot as plt
@@ -205,14 +205,7 @@ class QuadraticLossFunction(LossFunction):
     def val(self, points):
         x = points - self.mu
         return 0.5*np.sum(np.dot(x,self.Q)*x, axis=1)  + self.c
-    
-#     def val_mesh(self, X, Y):
-#         """ Return the value of the function over a meshgrid. Useful for plotting
-#             evolution of densities over a non-convex domain. """
-#         Xm, Ym = X - self.mu[0], Y-self.mu[1]
-#         val = 0.5*np.sum(np.dot(np.dot(Xm, self.Q), )
-        
-    
+   
     def max(self, grad=False):
         """ Compute the maximum of the loss function over the domain. """
         if grad:
@@ -261,7 +254,7 @@ class QuadraticLossFunction(LossFunction):
                                      + 'are supported for computing minimum and maximum of AffineLossFunctions'))
     
     def grad(self, points): 
-        return np.transpose(np.dot(self.Q, np.transpose(points)))
+        return np.transpose(np.dot(self.Q, np.transpose(points - self.mu)))
      
     def Hessian(self, points): 
         return np.array([self.Q,]*points.shape[0])
@@ -456,24 +449,133 @@ class PolynomialLossFunction(LossFunction):
     
     
     
+# class PiecewiseLossFunction(LossFunction):
+#     """ A piece-wise loss function in n dimensions defined over subdomains
+#         (for now assume just two... """ 
+#     
+#     def __init__(self, loss1, loss2, select=None):
+#         """ Construct a CompositeLossFunction from two individual loss functions     
+#             on the same domain, defined by the point-wise operation "select" between the 
+#             two functions. Here select is expected to be a callable that accepts a numpy 
+#             array of points, and returns a boolean numpy array of the same shape, where
+#             an entry "True" means that the first loss function is returned.
+#         """ 
+#         if not loss1.domain == loss2.domain:
+#             raise Exception('Loss functions must be defined on the same domain!')
+#         self.loss1, self.loss2 = loss1, loss2
+#         if select == None:
+#             self.select = lambda points: self.loss1.val(points) <= self.loss2.val(points)
+# 
+#     def val(self, points):
+#         select = self.select(points)
+#         return select*self.loss1.val(points) + np.bitwise_not(select)*self.loss2.val(points)
+#         
+#     def max(self, grad=False):
+#         """ Compute the maximum of the loss function over the domain. If grad=True
+#             also compute the maximum 2-norm of the gradient over the domain. 
+#             For now resort to stupid gridding. """
+#         if grad:
+#             M1, G1, M2, G2 = self.loss1.max(grad=True), self.loss2.max(grad=True)
+#             return np.maximum(M1, M2), np.maximum(G1, G2)
+#         else:
+#             return np.maximum(self.loss1.max(grad=False), self.loss2.max(grad=False))
+#         
+#     def min(self, grad=False):
+#         """ Compute the minimum of the loss function over the domain. """
+#         return np.minimum(self.loss1.min(), self.loss2.min())
+# 
+#     def grad(self, points): 
+#         """ Computes the gradient of the CompositeLossFunction at the specified points """
+#         select = self.select(points)
+#         return select*self.loss1.grad(points) + np.bitwise_not(select)*self.loss2.grad(points)
+#         
+#     def __add__(self, poly2):
+#         """ Add two Composite LossFunction objects (the convention here is that the
+#             loss functions are added individually!. """
+#         newdict = self.polydict.copy()
+#         for exps, coeff in poly2.polydict.items():
+#             try:
+#                 newdict[exps] = newdict[exps] + coeff
+#             except KeyError:
+#                 newdict[exps] = coeff
+#         return PolynomialLossFunction(self.domain, list(newdict.values()), list(newdict.keys()))
+#         
+#     def __mul__(self, scalar):
+#         """ Multiply a PolynomialLossFunction object with a scalar """
+#         return PolynomialLossFunction(self.domain, scalar*np.array(self.coeffs), self.exponents)
+#     
+#     def __rmul__(self, scalar):
+#         """ Multiply a PolynomialLossFunction object with a scalar """
+#         return self.__mul__(scalar)
+#         
+#     def norm(self, p, **kwargs):
+#         """ Computes the p-Norm of the loss function over the domain """
+#         if isinstance(self.domain, nBox):
+#             nboxes = [self.domain]
+#         elif isinstance(self.domain, UnionOfDisjointnBoxes):
+#             nboxes = self.domain.nboxes
+#         else:
+#             raise Exception('Sorry, so far only nBox and UnionOfDisjointnBoxes are supported!')
+#         if np.isinf(p):
+#             return self.max()
+#         else:
+#             ccode = ['#include <math.h>\n\n',
+#                      'double c[{}] = {{{}}};\n'.format(self.m, ','.join(str(coeff) for coeff in self.coeffs)),
+#                      'double e[{}] = {{{}}};\n\n'.format(self.m*self.domain.n, ','.join(str(xpnt) for xpntgrp in self.exponents for xpnt in xpntgrp)),
+#                      'double f(int n, double args[n]){\n',
+#                      '   double nu = *(args + {});\n'.format(self.domain.n),
+#                      '   int i,j;\n',
+#                      '   double mon;\n',  
+#                      '   double loss = 0.0;\n',
+#                      '   for (i=0; i<{}; i++){{\n'.format(self.m),
+#                      '     mon = 1.0;\n',
+#                      '     for (j=0; j<{}; j++){{\n'.format(self.domain.n),
+#                      '       mon = mon*pow(args[j], e[i*{}+j]);\n'.format(self.domain.n),
+#                      '       }\n',
+#                      '     loss += c[i]*mon;}\n',
+#                      '   return pow(fabs(loss), {});\n'.format(p),
+#                      '   }']  
+#             ranges = [nbox.bounds for nbox in nboxes]
+#             return ctypes_integrate(ccode, ranges, **kwargs)**(1/p)
+#     
+#     def gen_ccode(self):
+#         return ['double c[{}] = {{{}}};\n'.format(self.m, ','.join(str(coeff) for coeff in self.coeffs)),
+#                 'double e[{}] = {{{}}};\n\n'.format(self.m*self.domain.n, ','.join(str(xpnt) for xpntgrp in self.exponents for xpnt in xpntgrp)),
+#                 'double f(int n, double args[n]){\n',
+#                 '   double nu = *(args + {});\n'.format(self.domain.n),
+#                 '   int i,j;\n',
+#                 '   double mon;\n',  
+#                 '   double loss = 0.0;\n',
+#                 '   for (i=0; i<{}; i++){{\n'.format(self.m),
+#                 '     mon = 1.0;\n',
+#                 '     for (j=0; j<{}; j++){{\n'.format(self.domain.n),
+#                 '       mon = mon*pow(args[j], e[i*{}+j]);\n'.format(self.domain.n),
+#                 '       }\n',
+#                 '     loss += c[i]*mon;\n',
+#                 '     }\n']    
+        
+        
+        
 #######################################################################
 # Some helper functions
 #######################################################################
  
     
 def ctypes_integrate(ccode, ranges, tmpfolder='libs/', **kwargs):
-    with open('{}tmpintlib.c'.format(tmpfolder), 'w') as file:
-        file.writelines(ccode)
-    call(['gcc', '-shared', '-o', '{}tmpintlib.dylib'.format(tmpfolder), '-fPIC', '{}tmpintlib.c'.format(tmpfolder)])
-    lib = ctypes.CDLL('{}tmpintlib.dylib'.format(tmpfolder))
+    tmpfile = '{}{}'.format(tmpfolder, str(uuid.uuid4()))
+    with open(tmpfile+'.c', 'w') as file:
+        file.writelines(ccode) 
+    call(['gcc', '-shared', '-o', tmpfile+'.dylib', '-fPIC', tmpfile+'.c'])
+    lib = ctypes.CDLL(tmpfile+'.dylib')
     lib.f.restype = ctypes.c_double
     lib.f.argtypes = (ctypes.c_int, ctypes.c_double)
+    result = np.sum([nquad(lib.f, rng)[0] for rng in ranges])
+    dlclose(lib._handle) # this is to release the lib, so we can import the new version
     try:
-        return np.sum([nquad(lib.f, rng)[0] for rng in ranges])
-    finally: 
-        dlclose(lib._handle) # this is to release the lib, so we can import the new version
-        os.remove('{}tmpintlib.c'.format(tmpfolder)) # clean up
-        os.remove('{}tmpintlib.dylib'.format(tmpfolder)) # clean up
+        os.remove(tmpfile+'.c') # clean up
+        os.remove(tmpfile+'.dylib') # clean up
+    except FileNotFoundError: pass
+    return result   
         
         
 def create_random_gammas(covs, Lbnd, dist=uniform()):
@@ -507,24 +609,6 @@ def create_random_Sigmas(n, N, L, M, dist=gamma(2, scale=2)):
         Sigmas.append(Sigma)
     return np.array(Sigmas)
 
-
-# def create_random_Q(domain, mu, L, M, dist=uniform()):
-#     """ Creates random nxn covariance matrix s.t. the Lipschitz constant of the resulting 
-#         quadratic function is bounded Lbnd. Here M is the uniform bound on the maximal loss 
-#         and dist is a 'frozen' scipy.stats probability  distribution supported on [0,1] """
-#     n = domain.n
-#     # compute upper bound for eigenvalues
-#     Dmu = domain.compute_Dmu(mu)
-#     lambdamax = np.min((L/Dmu, 2*M/Dmu**2))
-#     # create random orthonormal matrix
-#     V = orth(np.random.uniform(size=(n,n)))   
-#     # create n random eigenvalues from the distribution  dist and 
-#     # scale them by lambdamax
-#     lambdas = lambdamax*dist.rvs(n)
-#     Q = np.zeros((n,n))
-#     for lbda, v in zip(lambdas, V):
-#         Q = Q + lbda*np.outer(v,v)
-#     return Q
 
 def create_random_Q(domain, mu, L, M, pd=True, H=0, dist=uniform()):
     """ Creates random symmetric nxn matrix s.t. the Lipschitz constant of the resulting 
@@ -621,7 +705,7 @@ def random_PolynomialLosses(dom, T, M, L, m_max, exponents, dist=uniform()):
     """
     lossfuncs = []
     while len(lossfuncs) < T:
-        expon = [tuple(np.random.choice(exponents, size=dom.n)) for i in range(np.random.choice(np.arange(1,m_max)))]
+        expon = [tuple(np.random.choice(exponents, size=dom.n)) for i in range(np.random.choice(np.arange(2,m_max)))]
         coeffs = np.random.randn(len(expon))
         lossfunc = PolynomialLossFunction(dom, coeffs, expon)
         Ml, Ll = lossfunc.max(grad=True)
