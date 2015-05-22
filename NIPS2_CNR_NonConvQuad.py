@@ -7,7 +7,7 @@ Comparison of Continuous No-Regret Algorithms for the 2nd NIPS paper
 
 # Set up infrastructure and basic problem parameters
 import matplotlib as mpl
-mpl.use('Agg)') # this is needed when running on a linux server over terminal
+mpl.use('Agg') # this is needed when running on a linux server over terminal
 import multiprocessing as mp
 import numpy as np
 import datetime, os
