@@ -16,6 +16,7 @@ from mpl_toolkits.mplot3d import axes3d
 from scipy.linalg import orth, eigh
 from scipy.integrate import nquad
 from scipy.stats import uniform, gamma
+from cvxopt import matrix, spmatrix, solvers
 from .Domains import nBox, UnionOfDisjointnBoxes, DifferenceOfnBoxes
 
 
@@ -228,31 +229,50 @@ class QuadraticLossFunction(LossFunction):
                 raise Exception(('Sorry, for now only nBox, UnionOfDisjointnBoxes and DifferenceOfnBoxes '
                                  + 'are supported for computing minimum and maximum of AffineLossFunctions'))
 
-    def min(self):
+    def min(self, **kwargs):
         """ Compute the minimum of the loss function over the domain. """
         try:
             return self.bounds['min']
         except (KeyError, AttributeError) as e:
-            if (isinstance(self.domain, nBox) or isinstance(self.domain, UnionOfDisjointnBoxes)
-                or isinstance(self.domain, DifferenceOfnBoxes)):
-                if not isPosDef(self.Q):
-                    minval = np.min(self.val(self.domain.grid(10000))) # this is a hack
-                elif self.domain.iselement(np.array(self.mu, ndmin=2)):
+            if isPosDef(self.Q):
+                if self.domain.iselement(np.array(self.mu, ndmin=2)):
                     minval = self.c
+                elif (isinstance(self.domain, nBox) or isinstance(self.domain, UnionOfDisjointnBoxes)):
+                    minval = self.find_boxmin()
                 else:
-                    minval = np.min(self.val(self.domain.grid(10000))) # this is another hack
-                    # this (modulo the domain splitting) is a convex problem, 
-                    # we could call an external solver to solve it...
-#                     raise NotImplementedError('mu outside domain')
-                try:
-                    self.bounds['min'] = minval
-                except AttributeError:
-                    self.bounds = {'min':minval}
-                return self.bounds['min']
+                    try:
+                        minval = np.min(self.val(kwargs['grid']))
+                    except KeyError:
+                        minval = np.min(self.val(self.domain.grid(50000))) # this is a hack
             else:
-                raise Exception(('Sorry, for now only nBox, UnionOfDisjointnBoxes and DifferenceOfnBoxes '
-                                     + 'are supported for computing minimum and maximum of AffineLossFunctions'))
+                try:
+                    minval = np.min(self.val(kwargs['grid']))
+                except KeyError:
+                    minval = np.min(self.val(self.domain.grid(50000))) # this is a hack
+            try:
+                self.bounds['min'] = minval
+            except AttributeError:
+                self.bounds = {'min':minval}
+            return self.bounds['min']
+#             else:
+#                 raise Exception(('Sorry, for now only nBox, UnionOfDisjointnBoxes and DifferenceOfnBoxes '
+#                                      + 'are supported for computing minimum and maximum of AffineLossFunctions'))
     
+    def find_boxmin(self):
+        if isinstance(self.domain, nBox):
+            bounds = [self.domain.bounds]
+        elif isinstance(self.domain, UnionOfDisjointnBoxes):
+            bounds = [nbox.bounds for nbox in self.domain.nboxes]
+        else:
+            raise Exception('Boxmin only works on nBox or UnionOfDisjointnBoxes')
+        n = self.domain.n
+        P = matrix(self.Q, tc='d')
+        q = matrix(-np.dot(self.Q, self.mu), tc='d')
+        G = spmatrix([-1,1]*n, np.arange(2*n), np.repeat(np.arange(n), 2), tc='d')
+        hs = [matrix(np.array([-1,1]*n)*np.array(bound).flatten(), tc='d') for bound in bounds]
+        solvers.options['show_progress'] = False
+        return np.min([self.val(np.array(res['x'], ndmin=2)) for res in [solvers.qp(P, q, G, h) for h in hs]])
+
     def grad(self, points): 
         return np.transpose(np.dot(self.Q, np.transpose(points - self.mu)))
      
@@ -695,7 +715,6 @@ def isPosDef(Q):
         return True
     except np.linalg.LinAlgError:
         return False 
-        
 
 def random_PolynomialLosses(dom, T, M, L, m_max, exponents, dist=uniform()):
     """ Creates T random L-Lipschitz PolynomialLossFunctions uniformly bounded
@@ -706,7 +725,7 @@ def random_PolynomialLosses(dom, T, M, L, m_max, exponents, dist=uniform()):
     lossfuncs = []
     while len(lossfuncs) < T:
         expon = [tuple(np.random.choice(exponents, size=dom.n)) for i in range(np.random.choice(np.arange(2,m_max)))]
-        coeffs = np.random.randn(len(expon))
+        coeffs = dist.rvs(len(expon))
         lossfunc = PolynomialLossFunction(dom, coeffs, expon)
         Ml, Ll = lossfunc.max(grad=True)
         ml = lossfunc.min()
