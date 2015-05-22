@@ -110,7 +110,7 @@ class nBox(Domain):
         N = points.shape[0]
         P = spdiag([matrix(2*mat, tc='d') for mat in mats])    
         q = matrix(np.einsum('ijk...,ik...->ij...', -2*mats, points).flatten(), tc='d')
-        G = spmatrix([-1,1]*(2*N), np.arange(4*N), np.repeat(np.arange(2*N), 2), tc='d')
+        G = spmatrix([-1,1]*(self.n*N), np.arange(2*self.n*N), np.repeat(np.arange(self.n*N), 2), tc='d')
         h = matrix(np.tile(np.array([-1,1]*self.n)*np.array(self.bounds).flatten(), points.shape[0]), tc='d')
         solvers.options['show_progress'] = False
         res = solvers.qp(P, q, G, h)
