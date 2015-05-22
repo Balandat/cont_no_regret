@@ -235,6 +235,12 @@ def circular_tour(domain, N):
     else:
         raise Exception('For now circular_tour only works on nBoxes and the difference of 2 nBoxes')
         
+def quicksample(bounds, A, eta):
+    """ Function returning actions sampled from the solution of the Dual Averaging 
+        update on an Box with Affine losses, Exponential Potential. """
+    C1, C2 = np.exp(-eta*A*bounds[:,0]), np.exp(-eta*A*bounds[:,1])
+    Finv = lambda U: -np.log(C1 - (C1-C2)*U)/A/eta
+    return Finv(np.random.rand(*A.shape))
 
 def CNR_worker(prob, *args, **kwargs):
     """ Helper function for wrapping class methods to allow for easy 
