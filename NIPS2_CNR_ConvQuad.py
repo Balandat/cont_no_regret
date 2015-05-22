@@ -34,7 +34,7 @@ L = 5.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
 Ngrid = 250000 # Number of gridpoints for the sampling step
 H = 0.1 # strict convexity parameter (lower bound on evals of Q)
-dom = unitbox(2)
+dom = unitbox(3)
 
 # before running the computation, read this file so we can later save a copy in the results folder
 with open(__file__, 'r') as f:
@@ -43,7 +43,7 @@ with open(__file__, 'r') as f:
 # Now create some random loss functions
 # mus_circ = circular_tour(dom, T)
 mus_random = dom.sample_uniform(T)
-epsilon = 1.0
+# epsilon = 0.25
 # mus = ((1-epsilon)*mus_circ + epsilon*mus_random)
 lossfuncs, Mnew, lambdamax = random_QuadraticLosses(dom, mus_random, L, M, pd=True, H=H)
 alpha_ec = H/dom.diameter/lambdamax
@@ -74,10 +74,10 @@ processes = []
 DAkwargs = [{'opt_rate':True, 'Ngrid':Ngrid, 'potential':pot, 'pid':i, 
              'tmpfolder':tmpfolder, 'label':pot.desc} for i,pot in enumerate(potentials)]
 processes += [pool.apply_async(CNR_worker, (prob, N, 'DA'), kwarg) for kwarg in DAkwargs]
-    
+     
 GPkwargs = {'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'GP'}
 processes.append(pool.apply_async(CNR_worker, (prob, N, 'GP'), GPkwargs))
-    
+     
 OGDkwargs = {'H':H, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'OGD'}
 processes.append(pool.apply_async(CNR_worker, (prob, N, 'OGD'), OGDkwargs))
     

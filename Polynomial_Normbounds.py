@@ -15,7 +15,7 @@ from ContNoRegret.loss_params import *
 
 # this is the location of the folder for the results
 results_path = '/Users/balandat/Documents/Code/Continuous_No-Regret/results/'
-desc = 'NIPS2_CNR_Affine'
+desc = 'NIPS2_CNR_PolyNormBounds'
 tmpfolder = '/Volumes/tmp/' # if possible, choose this to be a RamDisk
 
 # some flags for keeping a record of the simulation parameters
@@ -24,10 +24,13 @@ show_plots = True
 save_anims = False
 show_anims = False
 
+coeffs = coeffs + coeffs
+exponents = exponents + exponents
+
 T = len(coeffs) # Time horizon
 L = 5.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
-Ngrid = 250000 # Number of gridpoints for the sampling step
+Ngrid = 500000 # Number of gridpoints for the sampling step
 
 dom = unitbox(3)
 nus = [0.05, 1]
@@ -50,10 +53,12 @@ lossfuncs = [PolynomialLossFunction(dom, coeff, expo) for coeff,expo in zip(coef
 Minf, M2 = np.max(inf_norms), np.max(two_norms)
 
 # create Continuous No-Regret problem
-prob = ContNoRegretProblem(dom, lossfuncs, L, Minf, desc='normtest')
+prob = ContNoRegretProblem(dom, lossfuncs, L, Minf, desc='PolyNormBounds')
     
 # Select a number of potentials for the Dual Averaging algorithm
-potentials = [ExponentialPotential(), pNormPotential(1.05, M=Minf), pNormPotential(2, M=M2)]
+potentials = [ExponentialPotential(), pNormPotential(1.05, M=Minf), pNormPotential(2, M=M2)] 
+#[ExponentialPotential(), pNormPotential(1.05, M=Minf), pNormPotential(2, M=M2)]
+
   
 # the following runs fine if the script is the __main__ method, but crashes when running from ipython
 pool = mp.Pool(processes=mp.cpu_count()-1)

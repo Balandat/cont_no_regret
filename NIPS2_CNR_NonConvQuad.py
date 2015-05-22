@@ -19,7 +19,7 @@ from ContNoRegret.Potentials import (ExponentialPotential, IdentityPotential, pN
 
 # this is the location of the folder for the results
 results_path = '/Users/balandat/Documents/Code/Continuous_No-Regret/results/'
-desc = 'NIPS2_CNR_ConvQuad'
+desc = 'NIPS2_CNR_NonConvQuad'
 tmpfolder = '/Volumes/tmp/' # if possible, choose this to be a RamDisk
 
 # some flags for keeping a record of the simulation parameters
@@ -55,7 +55,7 @@ prob = ContNoRegretProblem(dom, lossfuncs, Lbnd, M, desc=desc)
   
 # Select a number of potentials for the Dual Averaging algorithm
 potentials = [ExponentialPotential(), pNormPotential(1.25), pNormPotential(1.75),
-              FractionalLinearPotential(1.25), FractionalLinearPotential(2.5), FractionalLinearPotential(5)]
+              FractionalLinearPotential(1.25), ExpPPotential(4)]
   
 # the following runs fine if the script is the __main__ method, but crashes when running from ipython
 pool = mp.Pool(processes=mp.cpu_count()-1)
