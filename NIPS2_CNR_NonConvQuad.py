@@ -2,10 +2,12 @@
 Comparison of Continuous No-Regret Algorithms for the 2nd NIPS paper
 
 @author: Maximilian Balandat
-@date: May 11, 2015
+@date: May 22, 2015
 '''
 
 # Set up infrastructure and basic problem parameters
+import matplotlib as mpl
+mpl.use('Agg)') # this is needed when running on a linux server over terminal
 import multiprocessing as mp
 import numpy as np
 import datetime, os
@@ -18,13 +20,14 @@ from ContNoRegret.Potentials import (ExponentialPotential, IdentityPotential, pN
                                         ExpPPotential, PExpPotential, HuberPotential, LogtasticPotential, FractionalLinearPotential)
 
 # this is the location of the folder for the results
-results_path = '/Users/balandat/Documents/Code/Continuous_No-Regret/results/'
+# results_path = '/Users/balandat/Documents/Code/Continuous_No-Regret/results/'
+results_path = '/home/max/Documents/CNR_results/'
 desc = 'NIPS2_CNR_NonConvQuad'
-tmpfolder = '/Volumes/tmp/' # if possible, choose this to be a RamDisk
+tmpfolder = '/media/tmp/' # if possible, choose this to be a RamDisk
 
 # some flags for keeping a record of the simulation parameters
 save_res = True
-show_plots = True
+show_plots = False
 save_anims = False
 show_anims = False
 
@@ -34,12 +37,11 @@ L = 5.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
 Ngrid = 250000 # Number of gridpoints for the sampling step
 H = 0.1 # strict convexity parameter (lower bound on evals of Q)
-# dom = hollowbox(2, ratio = 0.3)
 dom = unitbox(2)
 
-# # before running the computation, read this file so we can later save a copy in the results folder
-# with open(__file__, 'r') as f:
-#     thisfile = f.read()
+# before running the computation, read this file so we can later save a copy in the results folder
+with open(__file__, 'r') as f:
+    thisfile = f.read()
     
 # # Now create some random loss functions
 mus = circular_tour(dom, T)
@@ -55,22 +57,20 @@ alpha_ec = H/dom.diameter/lambdamax
 prob = ContNoRegretProblem(dom, lossfuncs, L, Mnew, desc=desc)
 
 # Select a number of potentials for the Dual Averaging algorithm
-potentials = [ExponentialPotential()]
+potentials = [ExponentialPotential(), pNormPotential(1.25), pNormPotential(1.75), ExpPPotential(4)]
 # , pNormPotential(1.25), pNormPotential(1.75),
-#               FractionalLinearPotential(1.25), ExpPPotential(4)]
-  
-# print([lossfunc.min() for lossfunc in lossfuncs])
+#               FractionalLinearPotential(1.25),]
   
 # the following runs fine if the script is the __main__ method, but crashes when running from ipython
 pool = mp.Pool(processes=mp.cpu_count()-1)
 processes = []
 
-# DAkwargs = [{'opt_rate':True, 'Ngrid':Ngrid, 'potential':pot, 'pid':i, 
-#              'tmpfolder':tmpfolder, 'label':pot.desc} for i,pot in enumerate(potentials)]
-# processes += [pool.apply_async(CNR_worker, (prob, N, 'DA'), kwarg) for kwarg in DAkwargs]
+DAkwargs = [{'opt_rate':True, 'Ngrid':Ngrid, 'potential':pot, 'pid':i, 
+             'tmpfolder':tmpfolder, 'label':pot.desc} for i,pot in enumerate(potentials)]
+processes += [pool.apply_async(CNR_worker, (prob, N, 'DA'), kwarg) for kwarg in DAkwargs]
     
-GPkwargs = {'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'GP'}
-processes.append(pool.apply_async(CNR_worker, (prob, N, 'GP'), GPkwargs))
+# GPkwargs = {'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'GP'}
+# processes.append(pool.apply_async(CNR_worker, (prob, N, 'GP'), GPkwargs))
     
 # OGDkwargs = {'H':H, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'OGD'}
 # processes.append(pool.apply_async(CNR_worker, (prob, N, 'OGD'), OGDkwargs))

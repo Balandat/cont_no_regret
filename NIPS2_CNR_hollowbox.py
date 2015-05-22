@@ -2,10 +2,12 @@
 Comparison of Continuous No-Regret Algorithms for the 2nd NIPS paper
 
 @author: Maximilian Balandat
-@date: May 11, 2015
+@date: May 22, 2015
 '''
 
 # Set up infrastructure and basic problem parameters
+import matplotlib as mpl
+mpl.use('Agg')
 import multiprocessing as mp
 import numpy as np
 import datetime, os
@@ -19,12 +21,12 @@ from ContNoRegret.Potentials import (ExponentialPotential, IdentityPotential, pN
 
 # this is the location of the folder for the results
 results_path = '/Users/balandat/Documents/Code/Continuous_No-Regret/results/'
-desc = 'NIPS2_CNR_ConvQuad'
-tmpfolder = '/Volumes/tmp/' # if possible, choose this to be a RamDisk
+desc = 'NIPS2_CNR_hollowbox_Quad'
+tmpfolder = '/media/tmp/' # if possible, choose this to be a RamDisk
 
 # some flags for keeping a record of the simulation parameters
 save_res = True
-show_plots = True
+show_plots = False
 save_anims = False
 show_anims = False
 
@@ -34,7 +36,7 @@ Lbnd = 5.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
 Ngrid = 250000 # Number of gridpoints for the sampling step
 H = 0.1 # strict convexity parameter (lower bound on evals of Q)
-dom = hollowbox(2, ratio=0.5)
+dom = hollowbox(2, ratio=0.3)
 
 # before running the computation, read this file so we can later save a copy in the results folder
 with open(__file__, 'r') as f:
@@ -54,7 +56,7 @@ prob = ContNoRegretProblem(dom, lossfuncs, Lbnd, M, desc=desc)
   
 # Select a number of potentials for the Dual Averaging algorithm
 potentials = [ExponentialPotential(), pNormPotential(1.5), FractionalLinearPotential(1.25), FractionalLinearPotential(2.5), 
-              FractionalLinearPotential(5), FractionalLinearPotential(10)]
+              FractionalLinearPotential(5)]
   
 # the following runs fine if the script is the __main__ method, but crashes when running from ipython
 pool = mp.Pool(processes=mp.cpu_count()-1)

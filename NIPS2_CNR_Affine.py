@@ -2,7 +2,7 @@
 Comparison of Continuous No-Regret Algorithms for the 2nd NIPS paper
 
 @author: Maximilian Balandat
-@date: May 11, 2015
+@date: May 22, 2015
 '''
 
 # Set up infrastructure and basic problem parameters
@@ -18,13 +18,13 @@ from ContNoRegret.Potentials import (ExponentialPotential, IdentityPotential, pN
                                         ExpPPotential, PExpPotential, HuberPotential, LogtasticPotential, FractionalLinearPotential)
 
 # this is the location of the folder for the results
-results_path = '/Users/balandat/Documents/Code/Continuous_No-Regret/results/'
+results_path = '/home/max/Documents/CNR_results/'
 desc = 'NIPS2_CNR_Affine'
-tmpfolder = '/Volumes/tmp/' # if possible, choose this to be a RamDisk
+tmpfolder = '/media/tmp/' # if possible, choose this to be a RamDisk
 
 # some flags for keeping a record of the simulation parameters
-save_res = False
-show_plots = True
+save_res = True
+show_plots = False
 save_anims = False
 show_anims = False
 
