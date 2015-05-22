@@ -189,14 +189,27 @@ class pNormPotential(OmegaPotential):
             of the Csizar divergence associated with the pNorm Potential. """
         return self.p-1, 2/(3-self.p)
             
+#     def gen_ccode(self):
+#         """ Generates a c-code snippet used for fast numerical integration """
+#         return ['   double z = -eta*(loss + nu);\n',
+#                 '   if(z>0){\n',
+#                 '     return pow(z, {});}}\n'.format(1/(self.p - 1)),
+#                 '   else{\n',
+#                 '     return 0.0;}\n',
+#                 '   }']
     def gen_ccode(self):
         """ Generates a c-code snippet used for fast numerical integration """
-        return ['   double z = -eta*(loss + nu);\n',
-                '   if(z>0){\n',
-                '     return pow(z, {});}}\n'.format(1/(self.p - 1)),
-                '   else{\n',
-                '     return 0.0;}\n',
-                '   }']
+        if self.p == 2:
+            return ['   double z = -eta*(loss + nu);\n',
+                    '   return fmax(z, 0.0);',
+                    '   }']
+        else:
+            return ['   double z = -eta*(loss + nu);\n',
+                    '   if(z>0){\n',
+                    '     return pow(z, {});}}\n'.format(1/(self.p - 1)),
+                    '   else{\n',
+                    '     return 0.0;}\n',
+                    '   }']
 
 
 class FractionalLinearPotential(OmegaPotential):
@@ -369,33 +382,34 @@ class CompositePotential(OmegaPotential):
 class ExpPPotential(OmegaPotential):
     """ A potential given by a composition of an exponential and a p norm """
     
-    def __init__(self, p, desc='ExpPPot'):
+    def __init__(self, p, c=1, desc='ExpPPot'):
         """ Constructor """
-        self.p = p
-        self.desc = desc = desc + ', ' + r'$p={{{}}}$'.format(p)
-        
+        self.p, self.c = p, c
+        self.gamma = c/p
+        self.desc = desc = desc + ', ' + r'$p={{{}}}, c={{{}}}$'.format(p, c)
+    
     def phi(self, u):
         """ Returns phi(u), the value of the ExpP-potential at the points u"""
-        return (u>=1)*u**(1/(self.p-1)) + (u<1)*np.exp((u-1)/(self.p-1))
+        return (u>=0)*(1 + self.gamma*u)**self.p + (u<0)*np.exp(self.c*u)
         
-    def phi_prime(self, u):
-        """ Returns phi'(u), the first derivative of the zero-potential at the points u """
-        return ((u>=1)/(self.p - 1)*u**((2 - self.p)/(self.p - 1)) 
-                + (u<1)/(self.p - 1)*np.exp((u - 1)/(self.p - 1)))
- 
-    def phi_double_prime(self, u):
-        """ Returns phi''(u), the second derivative of the zero-potential at the points u """
-        return ((u>=1)*(2 - self.p)/(self.p - 1)**2*u**((3 - 2*self.p)/(self.p - 1)) 
-                + (u<1)/(self.p - 1)**2*np.exp((u - 1)/(self.p - 1)))
-     
-    def phi_inv(self, u):
-        """ Returns phi^{-1}(u), the inverse function of the zero-potential at the points u """
-        return (u>=1)*u**(self.p-1) + (u<1)*(1+(self.p-1)*np.log(u))
-     
-    def phi_inv_prime(self, u):
-        """ Returns phi^{-1}'(u), the first derivative of the inverse 
-            function of the zero-potential at the points u """
-        raise 1/self.phi_prime(self.phi_inv(u))
+#     def phi_prime(self, u):
+#         """ Returns phi'(u), the first derivative of the zero-potential at the points u """
+#         return ((u>=1)/(self.p - 1)*u**((2 - self.p)/(self.p - 1)) 
+#                 + (u<1)/(self.p - 1)*np.exp((u - 1)/(self.p - 1)))
+#  
+#     def phi_double_prime(self, u):
+#         """ Returns phi''(u), the second derivative of the zero-potential at the points u """
+#         return ((u>=1)*(2 - self.p)/(self.p - 1)**2*u**((3 - 2*self.p)/(self.p - 1)) 
+#                 + (u<1)/(self.p - 1)**2*np.exp((u - 1)/(self.p - 1)))
+#      
+#     def phi_inv(self, u):
+#         """ Returns phi^{-1}(u), the inverse function of the zero-potential at the points u """
+#         return (u>=1)*u**(self.p-1) + (u<1)*(1+(self.p-1)*np.log(u))
+#      
+#     def phi_inv_prime(self, u):
+#         """ Returns phi^{-1}'(u), the first derivative of the inverse 
+#             function of the zero-potential at the points u """
+#         raise 1/self.phi_prime(self.phi_inv(u))
     
     def isconvex(self):
         """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
@@ -404,17 +418,58 @@ class ExpPPotential(OmegaPotential):
     def bounds_asymp(self):
         """ Returns constants C and epsilon s.t. f_phi(x) <= C x**(1+epsilon) 
             for all x >= 1. See Theorem 2 in paper for details. """
-        return 1/self.p, self.p - 1
+        return self.p/(self.p-1)/self.gamma, 1/self.p
     
     def gen_ccode(self):
         """ Generates a c-code snippet used for fast numerical integration """
         return ['   double z = -eta*(loss + nu);\n',
-                '   if(z>1){\n',
-                '     return pow(z, {});}}\n'.format(1/(self.p - 1)),
+                '   if(z>=0){\n',
+                '     return pow(1+{}*z, {});}}\n'.format(self.gamma, self.p),
                 '   else{\n',
-                '     return exp((z-1)/{});}}\n'.format(self.p - 1),
+                '     return exp({}*z));}}\n'.format(self.c),
                 '   }']
-        
+             
+#     def phi(self, u):
+#         """ Returns phi(u), the value of the ExpP-potential at the points u"""
+#         return (u>=1)*u**(1/(self.p-1)) + (u<1)*np.exp((u-1)/(self.p-1))
+#         
+#     def phi_prime(self, u):
+#         """ Returns phi'(u), the first derivative of the zero-potential at the points u """
+#         return ((u>=1)/(self.p - 1)*u**((2 - self.p)/(self.p - 1)) 
+#                 + (u<1)/(self.p - 1)*np.exp((u - 1)/(self.p - 1)))
+#  
+#     def phi_double_prime(self, u):
+#         """ Returns phi''(u), the second derivative of the zero-potential at the points u """
+#         return ((u>=1)*(2 - self.p)/(self.p - 1)**2*u**((3 - 2*self.p)/(self.p - 1)) 
+#                 + (u<1)/(self.p - 1)**2*np.exp((u - 1)/(self.p - 1)))
+#      
+#     def phi_inv(self, u):
+#         """ Returns phi^{-1}(u), the inverse function of the zero-potential at the points u """
+#         return (u>=1)*u**(self.p-1) + (u<1)*(1+(self.p-1)*np.log(u))
+#      
+#     def phi_inv_prime(self, u):
+#         """ Returns phi^{-1}'(u), the first derivative of the inverse 
+#             function of the zero-potential at the points u """
+#         raise 1/self.phi_prime(self.phi_inv(u))
+#     
+#     def isconvex(self):
+#         """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
+#         return True
+#     
+#     def bounds_asymp(self):
+#         """ Returns constants C and epsilon s.t. f_phi(x) <= C x**(1+epsilon) 
+#             for all x >= 1. See Theorem 2 in paper for details. """
+#         return 1/self.p, self.p - 1
+#     
+#     def gen_ccode(self):
+#         """ Generates a c-code snippet used for fast numerical integration """
+#         return ['   double z = -eta*(loss + nu);\n',
+#                 '   if(z>1){\n',
+#                 '     return pow(z, {});}}\n'.format(1/(self.p - 1)),
+#                 '   else{\n',
+#                 '     return exp((z-1)/{});}}\n'.format(self.p - 1),
+#                 '   }']
+#         
 
 class PExpPotential(OmegaPotential):
     """ A potential given by a composition of a p-norm and 
