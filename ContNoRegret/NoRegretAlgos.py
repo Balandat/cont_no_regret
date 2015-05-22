@@ -247,7 +247,7 @@ class ContNoRegretProblem(object):
                         raise Exception('For now, domain must be an nBox or a UnionOfDisjointnBoxes!') 
                     action_ewoo = action_EWOO(cumLossFunc, alpha, ranges, tmpfolder=kwargs['tmpfolder'])
                     action = np.array([action_ewoo,]*N)
-            
+                    
             # now store the actions, losses, etc.
             actions.append(action)
             loss = lossfunc.val(action)
@@ -259,10 +259,15 @@ class ContNoRegretProblem(object):
                 cumloss.append(cumloss[-1] + loss)
                 cumLossFunc = cumLossFunc + lossfunc
             # compute and append regret -- resort to gridding for now
+#             print(gridpoints.shape)
+#             print(lossfunc.val(gridpoints))
             approxL += lossfunc.val(gridpoints)
 #             optval = np.min(approxL)
+#             print('computing optimal value... ')
             optval = cumLossFunc.min()
+#             print('found optimal value... ')
             regrets.append(cumloss[-1] - optval)
+#             return lossfunc, gridpoints, approxL
         return np.transpose(np.array(actions), (1,0,2)), np.transpose(np.array(losses)), np.transpose(np.array(regrets))
     
     

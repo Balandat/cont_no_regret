@@ -702,9 +702,9 @@ def random_QuadraticLosses(dom, mus, L, M, pd=True, H=0, dist=uniform()):
     for mu in mus:
         Q, lambdamax = create_random_Q(dom, mu, L, M, pd, H, dist)
         lossfunc = QuadraticLossFunction(dom, mu, Q, 0)
-        lossfunc.c = -lossfunc.min()
-        lossfuncs.append(lossfunc)
-        Ms.append(lossfunc.max())
+        c = -lossfunc.min()
+        lossfuncs.append(QuadraticLossFunction(dom, mu, Q, c))
+        Ms.append(lossfuncs[-1].max())
         lambdamaxs.append(lambdamax)
     return lossfuncs, np.max(Ms), np.max(lambdamaxs)
         
