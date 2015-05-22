@@ -7,9 +7,8 @@ Basic Algorithms for the Continuous No-Regret Problem.
 
 import numpy as np
 from .LossFunctions import ZeroLossFunction, AffineLossFunction, ctypes_integrate
-from .utils import compute_etaopt 
+from .utils import compute_etaopt, quicksample
 from .DualAveraging import compute_nustar
-from .NLopt import quicksample
 from .Domains import nBox, UnionOfDisjointnBoxes, DifferenceOfnBoxes
 from .Potentials import ExponentialPotential
 from scipy.stats import linregress
@@ -208,7 +207,7 @@ class ContNoRegretProblem(object):
                 if t == 0: 
                     action = self.domain.sample_uniform(N) # pick arbitrary action in the first step, may as well sample
                     grad = lossfunc.grad(action)
-                    A = np.einsum('ij...,i...->ij...', grad, grad) + epsilon*np.array([np.eye(2),]*N)
+                    A = np.einsum('ij...,i...->ij...', grad, grad) + epsilon*np.array([np.eye(self.domain.n),]*N)
                     Ainv = np.array([np.linalg.inv(mat) for mat in A])
                 else:
                     points = actions[-1] - np.einsum('ijk...,ik...->ij...', Ainv, grad)/beta
@@ -261,7 +260,8 @@ class ContNoRegretProblem(object):
                 cumLossFunc = cumLossFunc + lossfunc
             # compute and append regret -- resort to gridding for now
             approxL += lossfunc.val(gridpoints)
-            optval = np.min(approxL)
+#             optval = np.min(approxL)
+            optval = cumLossFunc.min()
             regrets.append(cumloss[-1] - optval)
         return np.transpose(np.array(actions), (1,0,2)), np.transpose(np.array(losses)), np.transpose(np.array(regrets))
     
@@ -331,9 +331,10 @@ class Results(object):
             except KeyError: pass
         else:
             self.regs_norate = kwargs['regs_{}'.format(self.algo)]
-        self.slopes, self.slopes_bnd = self.estimate_loglog_slopes()
+        Nslopes = np.minimum(1000, np.floor(self.problem.T/3))
+        self.slopes, self.slopes_bnd = self.estimate_loglog_slopes(Nslopes)
             
-    def estimate_loglog_slopes(self, N=125):
+    def estimate_loglog_slopes(self, N=500):
         """ Estimates slope, intercept and r_value of the asymptotic log-log plot
         for each element f tsavg_regert, using the N last data points """
         slopes, slopes_bnd = {}, {}
