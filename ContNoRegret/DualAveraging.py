@@ -12,12 +12,12 @@ from subprocess import call
 from scipy.optimize import brentq
 from scipy.integrate import nquad
 from .Domains import nBox, UnionOfDisjointnBoxes, DifferenceOfnBoxes
-from .Potentials import ExponentialPotential
+from .Potentials import ExponentialPotential, pNormPotential
 
 
 def compute_nustar(dom, potential, eta, Loss, M, nu_prev, eta_prev, t, 
                    pid='0', tmpfolder='libs/'):
-    """ Determines the normalizing nustar for the dual-averaging update """    
+    """ Determines the normalizing nustar for the dual-averaging update """  
     tmpfile = '{}{}'.format(tmpfolder, str(uuid.uuid4()))
     with open(tmpfile+'.c', 'w') as file:
         file.writelines(generate_ccode(dom, potential, eta, Loss)) 
@@ -43,11 +43,14 @@ def compute_nustar(dom, potential, eta, Loss, M, nu_prev, eta_prev, t,
                 integral = np.sum([nquad(lib.f, rng, [0])[0] for rng in ranges])
                 nustar = np.log(integral)/eta
             else:
-                f = lambda nu: np.sum([nquad(lib.f, rng, args=[nu])[0] for rng in ranges]) - 1
+                f = lambda nu: np.sum([nquad(lib.f, rng, args=[nu], 
+                                             opts=[{'epsabs':1.49e-3, 'epsrel':1.49e-4}]*dom.n)[0] 
+                                       for rng in ranges]) - 1
                 success = False
                 while not success:
                     try:
-                        nustar = brentq(f, a, b)
+                        nustar, r = brentq(f, a, b, full_output=True)
+                        print(r.root, r.iterations, r.function_calls, r.converged, r.flag)
                         success = True
                     except ValueError:
                         print('WARINING: PROCESS {} HAS ENCOUNTERED f(a)!=f(b)!'.format(pid))
