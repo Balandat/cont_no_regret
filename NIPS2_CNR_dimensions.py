@@ -11,6 +11,7 @@ mpl.use('Agg') # this is needed when running on a linux server over terminal
 import multiprocessing as mp
 import numpy as np
 import datetime, os
+import pickle
 from ContNoRegret.Domains import nBox, UnionOfDisjointnBoxes, DifferenceOfnBoxes, unitbox, hollowbox
 from ContNoRegret.LossFunctions import QuadraticLossFunction, random_QuadraticLosses
 from ContNoRegret.NoRegretAlgos import ContNoRegretProblem
@@ -30,7 +31,7 @@ show_plots = False
 save_anims = False
 show_anims = False
 
-T = 5000 # Time horizon
+T = 250 # Time horizon
 M = 10.0 # Uniform bound on the function (in the dual norm)
 L = 5.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
@@ -64,28 +65,30 @@ potentials = [ExponentialPotential(), pNormPotential(1.5)]
 pool = mp.Pool(processes=mp.cpu_count()-1)
 processes = []
 
-DAkwargs = [{'opt_rate':True, 'Ngrid':Ngrid, 'potential':pot, 'pid':i, 
-             'tmpfolder':tmpfolder, 'label':pot.desc} for i,pot in enumerate(potentials)]
-processes += [pool.apply_async(CNR_worker, (prob, N, 'DA'), kwarg) for kwarg in DAkwargs for prob in problems]
+# DAkwargs = [{'opt_rate':True, 'Ngrid':Ngrid, 'potential':pot, 'pid':i, 
+#              'tmpfolder':tmpfolder, 'label':pot.desc} for i,pot in enumerate(potentials)]
+# processes += [pool.apply_async(CNR_worker, (prob, N, 'DA'), kwarg) for kwarg in DAkwargs for prob in problems]
      
 GPkwargs = {'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'GP'}
 processes += [pool.apply_async(CNR_worker, (prob, N, 'GP'), GPkwargs) for prob in problems]
      
-OGDkwargs = {'H':H, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'OGD'}
-processes += [pool.apply_async(CNR_worker, (prob, N, 'OGD'), OGDkwargs) for prob in problems]
-    
-ONSkwargs = {'alpha':alpha_ec, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'ONS'}
-processes += [pool.apply_async(CNR_worker, (prob, N, 'ONS'), ONSkwargs) for prob in problems] 
-   
-FTALkwargs = {'alpha':alpha_ec, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'FTAL'}
-processes += [pool.apply_async(CNR_worker, (prob, N, 'FTAL'), FTALkwargs) for prob in problems]
-  
-EWOOkwargs = {'alpha':alpha_ec, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'EWOO'}
-processes += [pool.apply_async(CNR_worker, (prob, N, 'EWOO'), EWOOkwargs) for prob in problems]
+# OGDkwargs = {'H':H, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'OGD'}
+# processes += [pool.apply_async(CNR_worker, (prob, N, 'OGD'), OGDkwargs) for prob in problems]
+#     
+# ONSkwargs = {'alpha':alpha_ec, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'ONS'}
+# processes += [pool.apply_async(CNR_worker, (prob, N, 'ONS'), ONSkwargs) for prob in problems] 
+#    
+# FTALkwargs = {'alpha':alpha_ec, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'FTAL'}
+# processes += [pool.apply_async(CNR_worker, (prob, N, 'FTAL'), FTALkwargs) for prob in problems]
+#   
+# EWOOkwargs = {'alpha':alpha_ec, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'EWOO'}
+# processes += [pool.apply_async(CNR_worker, (prob, N, 'EWOO'), EWOOkwargs) for prob in problems]
 
-# wait for the processes to finish an collect the results
+# wait for the processes to finish an collect the results (as file handlers)
 results = [process.get() for process in processes]
-  
+# read the results from file
+results = [pickle.load(result) for result in results]
+
 # plot results and/or save a persistent copy (pickled) of the detailed results
 timenow = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')# create a time stamp for unambiguously naming the results folder
 results_directory = '{}{}/'.format(results_path, timenow)

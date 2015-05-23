@@ -6,6 +6,8 @@ Basic Algorithms for the Continuous No-Regret Problem.
 '''
 
 import numpy as np
+import tempfile
+import pickle
 from .LossFunctions import ZeroLossFunction, AffineLossFunction, ctypes_integrate
 from .utils import compute_etaopt, quicksample
 from .DualAveraging import compute_nustar
@@ -151,8 +153,11 @@ class ContNoRegretProblem(object):
             self.parse_regrets(regs_norate, regrets)
             self.regret_bound(regs_norate, algo, **kwargs)
             result_args['regs_{}'.format(algo)] = regs_norate
-        return Results(self, label=label, algo=algo, **result_args)
-    
+        # write the results to file (save memory) and return the file handler
+        results = Results(self, label=label, algo=algo, **result_args)
+        f = tempfile.TemporaryFile('wb')
+        pickle.dump(results, f, pickle.HIGHEST_PROTOCOL)     
+        return f
     
     def simulate(self, N, etas='opt', algo='DA', Ngrid=100000, **kwargs):
         """ Simulates the result of running the No-Regret algorithm (N times).
