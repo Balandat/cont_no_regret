@@ -2,11 +2,11 @@
 Basic Algorithms for the Continuous No-Regret Problem.
 
 @author: Maximilian Balandat
-@date May 10, 2015
+@date May 23, 2015
 '''
 
 import numpy as np
-import tempfile
+import os
 import pickle
 from .LossFunctions import ZeroLossFunction, AffineLossFunction, ctypes_integrate
 from .utils import compute_etaopt, quicksample
@@ -155,10 +155,11 @@ class ContNoRegretProblem(object):
             result_args['regs_{}'.format(algo)] = regs_norate
         # write the results to file (save memory) and return the file handler
         results = Results(self, label=label, algo=algo, **result_args)
-        f = tempfile.TemporaryFile('wb')
-        pickle.dump(results, f, pickle.HIGHEST_PROTOCOL)     
-        return f
-    
+        os.makedirs('results', exist_ok=True)
+        with open('results/{}_n{}.piggl'.format(label, self.domain.n), 'wb') as f:
+            pickle.dump(results, f, pickle.HIGHEST_PROTOCOL)     
+            return True
+ 
     def simulate(self, N, etas='opt', algo='DA', Ngrid=100000, **kwargs):
         """ Simulates the result of running the No-Regret algorithm (N times).
             Returns a list of sequences of decisions and associated losses, one for each run. 

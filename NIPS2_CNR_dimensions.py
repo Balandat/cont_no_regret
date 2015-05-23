@@ -35,7 +35,7 @@ T = 250 # Time horizon
 M = 10.0 # Uniform bound on the function (in the dual norm)
 L = 5.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
-Ngrid = 1000000 # Number of gridpoints for the sampling step
+Ngrid = 500000 # Number of gridpoints for the sampling step
 H = 0.1 # strict convexity parameter (lower bound on evals of Q)
 
 doms = [unitbox(n+2) for n in range(3)]
@@ -65,43 +65,50 @@ potentials = [ExponentialPotential(), pNormPotential(1.5)]
 pool = mp.Pool(processes=mp.cpu_count()-1)
 processes = []
 
-# DAkwargs = [{'opt_rate':True, 'Ngrid':Ngrid, 'potential':pot, 'pid':i, 
-#              'tmpfolder':tmpfolder, 'label':pot.desc} for i,pot in enumerate(potentials)]
-# processes += [pool.apply_async(CNR_worker, (prob, N, 'DA'), kwarg) for kwarg in DAkwargs for prob in problems]
+for prob in problems:
+    for pot in potentials:
+        processes.append(pool.apply_async(CNR_worker, (prob,N,'DA'), {'opt_rate':True, 'Ngrid':Ngrid, 
+					  'potential':pot, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':pot.desc})) 
+    processes.append(pool.apply_async(CNR_worker, (prob,N,'GP'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'GP', 'tmpfolder':tmpfolder}))
+    processes.append(pool.apply_async(CNR_worker, (prob,N,'OGD'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'OGD', 'tmpfolder':tmpfolder, 'H':H}))
+    processes.append(pool.apply_async(CNR_worker, (prob,N,'ONS'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'ONS', 'tmpfolder':tmpfolder, 'alpha':alpha_ec}))
+    processes.append(pool.apply_async(CNR_worker, (prob,N,'FTAL'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'FTAL', 'tmpfolder':tmpfolder, 'alpha':alpha_ec}))
+    processes.append(pool.apply_async(CNR_worker, (prob,N,'EWOO'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'EWOO', 'tmpfolder':tmpfolder, 'alpha':alpha_ec}))
+        
+#OGDkwargs = {'H':H, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'OGD'}
+#processes += [pool.apply_async(CNR_worker, (prob, N, 'OGD'), OGDkwargs) for prob in problems]
      
-GPkwargs = {'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'GP'}
-processes += [pool.apply_async(CNR_worker, (prob, N, 'GP'), GPkwargs) for prob in problems]
-     
-# OGDkwargs = {'H':H, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'OGD'}
-# processes += [pool.apply_async(CNR_worker, (prob, N, 'OGD'), OGDkwargs) for prob in problems]
-#     
-# ONSkwargs = {'alpha':alpha_ec, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'ONS'}
-# processes += [pool.apply_async(CNR_worker, (prob, N, 'ONS'), ONSkwargs) for prob in problems] 
-#    
-# FTALkwargs = {'alpha':alpha_ec, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'FTAL'}
-# processes += [pool.apply_async(CNR_worker, (prob, N, 'FTAL'), FTALkwargs) for prob in problems]
+#ONSkwargs = {'alpha':alpha_ec, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'ONS'}
+#processes += [pool.apply_async(CNR_worker, (prob, N, 'ONS'), ONSkwargs) for prob in problems] 
+    
+#FTALkwargs = {'alpha':alpha_ec, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'FTAL'}
+#processes += [pool.apply_async(CNR_worker, (prob, N, 'FTAL'), FTALkwargs) for prob in problems]
 #   
-# EWOOkwargs = {'alpha':alpha_ec, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'EWOO'}
-# processes += [pool.apply_async(CNR_worker, (prob, N, 'EWOO'), EWOOkwargs) for prob in problems]
+#EWOOkwargs = {'alpha':alpha_ec, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'EWOO'}
+#processes += [pool.apply_async(CNR_worker, (prob, N, 'EWOO'), EWOOkwargs) for prob in problems]
 
 # wait for the processes to finish an collect the results (as file handlers)
-results = [process.get() for process in processes]
-# read the results from file
-results = [pickle.load(result) for result in results]
+resultfiles = [process.get() for process in processes]
 
+# read the results from file
+#results = []
+#for rfile in resultfiles:
+#    with open(rfile, 'rb') as f:
+#        results.append(pickle.load(f))
+#
 # plot results and/or save a persistent copy (pickled) of the detailed results
-timenow = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')# create a time stamp for unambiguously naming the results folder
-results_directory = '{}{}/'.format(results_path, timenow)
-  
-if save_res:   
-    os.makedirs(results_directory, exist_ok=True) # this could probably use a safer implementation
+#timenow = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')# create a time stamp for unambiguously naming the results folder
+#results_directory = '{}{}/'.format(results_path, timenow)
+#  
+#if save_res:   
+#    os.makedirs(results_directory, exist_ok=True) # this could probably use a safer implementation
 #    plot_results(results, 100, results_directory, show_plots)
 #    if save_anims:
 #        save_animations(results, 10, results_directory, show_anims)  
-    save_results(results, results_directory)  
+#    save_results(results, results_directory)  
     # store the previously read-in contents of this file in the results folder
-    with open(results_directory+str(__file__), 'w') as f:
-        f.write(thisfile)
+#    with open(results_directory+str(__file__), 'w') as f:
+#        f.write(thisfile)
 #else:
 #    plot_results(results, offset=100)
 
