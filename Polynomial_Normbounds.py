@@ -1,4 +1,6 @@
 # Set up infrastructure and basic problem parameters
+import matplotlib as mpl
+mpl.use('Agg')
 import multiprocessing as mp
 import numpy as np
 import datetime, os
@@ -14,18 +16,18 @@ from ContNoRegret.Potentials import (ExponentialPotential, IdentityPotential, pN
 from ContNoRegret.loss_params import *
 
 # this is the location of the folder for the results
-results_path = '/Users/balandat/Documents/Code/Continuous_No-Regret/results/'
+results_path = '/home/max/Documents/CNR_results/'
 desc = 'NIPS2_CNR_PolyNormBounds'
-tmpfolder = '/Volumes/tmp/' # if possible, choose this to be a RamDisk
+tmpfolder = '/media/tmp/' # if possible, choose this to be a RamDisk
 
 # some flags for keeping a record of the simulation parameters
 save_res = True
-show_plots = True
+show_plots = False
 save_anims = False
 show_anims = False
 
-coeffs = coeffs + coeffs
-exponents = exponents + exponents
+coeffs = coeffs + coeffs + coeffs
+exponents = exponents + exponents + exponents
 
 T = len(coeffs) # Time horizon
 L = 5.0 # Uniform bound on the Lipschitz constant

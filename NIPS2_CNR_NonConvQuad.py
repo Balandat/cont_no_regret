@@ -31,21 +31,24 @@ show_plots = False
 save_anims = False
 show_anims = False
 
-T = 750 # Time horizon
+T = 8000 # Time horizon
 M = 10.0 # Uniform bound on the function (in the dual norm)
 L = 5.0 # Uniform bound on the Lipschitz constant
-N = 2500 # Number of parallel algorithm instances
-Ngrid = 250000 # Number of gridpoints for the sampling step
+N = 2000 # Number of parallel algorithm instances
+Ngrid = 500000 # Number of gridpoints for the sampling step
 H = 0.1 # strict convexity parameter (lower bound on evals of Q)
-dom = unitbox(2)
+dom = unitbox(3)
 
 # before running the computation, read this file so we can later save a copy in the results folder
 with open(__file__, 'r') as f:
     thisfile = f.read()
     
 # # Now create some random loss functions
-mus = circular_tour(dom, T)
-lossfuncs, Mnew, lambdamax = random_QuadraticLosses(dom, mus, L, M, pd=False, H=H)
+#mus = circular_tour(dom, T)
+mus_random = dom.sample_uniform(T)
+#epsilon = 0.4
+#mus = (1-epsilon)*mus + epsilon*mus_random
+lossfuncs, Mnew, lambdamax = random_QuadraticLosses(dom, mus_random, L, M, pd=False, H=H)
 alpha_ec = H/dom.diameter/lambdamax
 
 # # compute bounds on the norms
@@ -57,7 +60,7 @@ alpha_ec = H/dom.diameter/lambdamax
 prob = ContNoRegretProblem(dom, lossfuncs, L, Mnew, desc=desc)
 
 # Select a number of potentials for the Dual Averaging algorithm
-potentials = [ExponentialPotential(), pNormPotential(1.25), pNormPotential(1.75), ExpPPotential(4)]
+potentials = [ExponentialPotential(), pNormPotential(1.25), pNormPotential(1.75), FractionalLinearPotential(2)]
 # , pNormPotential(1.25), pNormPotential(1.75),
 #               FractionalLinearPotential(1.25),]
   
@@ -69,20 +72,20 @@ DAkwargs = [{'opt_rate':True, 'Ngrid':Ngrid, 'potential':pot, 'pid':i,
              'tmpfolder':tmpfolder, 'label':pot.desc} for i,pot in enumerate(potentials)]
 processes += [pool.apply_async(CNR_worker, (prob, N, 'DA'), kwarg) for kwarg in DAkwargs]
     
-# GPkwargs = {'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'GP'}
-# processes.append(pool.apply_async(CNR_worker, (prob, N, 'GP'), GPkwargs))
+GPkwargs = {'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'GP'}
+processes.append(pool.apply_async(CNR_worker, (prob, N, 'GP'), GPkwargs))
     
-# OGDkwargs = {'H':H, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'OGD'}
-# processes.append(pool.apply_async(CNR_worker, (prob, N, 'OGD'), OGDkwargs))
-#    
-# ONSkwargs = {'alpha':alpha_ec, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'ONS'}
-# processes.append(pool.apply_async(CNR_worker, (prob, N, 'ONS'), ONSkwargs)) 
-#   
-# FTALkwargs = {'alpha':alpha_ec, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'FTAL'}
-# processes.append(pool.apply_async(CNR_worker, (prob, N, 'FTAL'), FTALkwargs))
-#  
-# EWOOkwargs = {'alpha':alpha_ec, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'EWOO'}
-# processes.append(pool.apply_async(CNR_worker, (prob, N, 'EWOO'), EWOOkwargs))
+OGDkwargs = {'H':H, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'OGD'}
+processes.append(pool.apply_async(CNR_worker, (prob, N, 'OGD'), OGDkwargs))
+    
+ONSkwargs = {'alpha':alpha_ec, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'ONS'}
+processes.append(pool.apply_async(CNR_worker, (prob, N, 'ONS'), ONSkwargs)) 
+   
+FTALkwargs = {'alpha':alpha_ec, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'FTAL'}
+processes.append(pool.apply_async(CNR_worker, (prob, N, 'FTAL'), FTALkwargs))
+  
+EWOOkwargs = {'alpha':alpha_ec, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'EWOO'}
+processes.append(pool.apply_async(CNR_worker, (prob, N, 'EWOO'), EWOOkwargs))
 
 # wait for the processes to finish an collect the results
 results = [process.get() for process in processes]

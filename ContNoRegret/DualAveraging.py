@@ -44,13 +44,13 @@ def compute_nustar(dom, potential, eta, Loss, M, nu_prev, eta_prev, t,
                 nustar = np.log(integral)/eta
             else:
                 f = lambda nu: np.sum([nquad(lib.f, rng, args=[nu], 
-                                             opts=[{'epsabs':1.49e-3, 'epsrel':1.49e-4}]*dom.n)[0] 
+                                             opts=[{'epsabs':1.49e-4, 'epsrel':1.49e-5}]*dom.n)[0] 
                                        for rng in ranges]) - 1
                 success = False
                 while not success:
                     try:
                         nustar, r = brentq(f, a, b, full_output=True)
-                        print(r.root, r.iterations, r.function_calls, r.converged, r.flag)
+                        # print(r.root, r.iterations, r.function_calls, r.converged, r.flag)
                         success = True
                     except ValueError:
                         print('WARINING: PROCESS {} HAS ENCOUNTERED f(a)!=f(b)!'.format(pid))
