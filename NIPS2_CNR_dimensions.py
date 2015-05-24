@@ -18,12 +18,12 @@ from ContNoRegret.NoRegretAlgos import ContNoRegretProblem
 from ContNoRegret.utils import CNR_worker, plot_results, save_results, circular_tour
 from ContNoRegret.animate import save_animations
 from ContNoRegret.Potentials import (ExponentialPotential, IdentityPotential, pNormPotential, CompositePotential,
-                                        ExpPPotential, PExpPotential, HuberPotential, LogtasticPotential, FractionalLinearPotential)
+                                        ExpPPotential, pExpPotential, HuberPotential, LogtasticPotential, FractionalLinearPotential)
 
 # this is the location of the folder for the results
 results_path = '/home/max/Documents/CNR_results/'
 desc = 'NIPS2_CNR_dimensions'
-tmpfolder = '/media/tmp/' # if possible, choose this to be a RamDisk
+tmpfolder = '/Volumes/tmp/' # if possible, choose this to be a RamDisk
 
 # some flags for keeping a record of the simulation parameters
 save_res = True
@@ -50,7 +50,7 @@ alpha_ec = []
 doms = []
 # recover the losses from previous run for comparison. 
 for i,n in enumerate([3,4]):
-    with open('results/ExpPot_n{}.piggl'.format(n), 'rb') as f:
+    with open('/Users/balandat/Documents/Code/Continuous_No-Regret/individ_results/dimension/ExpPot_n{}.piggl'.format(n), 'rb') as f:
         result = pickle.load(f)                
     problems.append(result.problem)
     doms.append(problems[-1].domain)
@@ -76,7 +76,7 @@ potentials = [pNormPotential(1.5)]
   
 # the following runs fine if the script is the __main__ method, but crashes when running from ipython
 #pool = mp.Pool(processes=mp.cpu_count()-1
-pool = mp.Pool(2)
+pool = mp.Pool(4)
 processes = []
 
 for i,prob in enumerate(problems):

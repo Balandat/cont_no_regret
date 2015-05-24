@@ -18,7 +18,7 @@ from ContNoRegret.NoRegretAlgos import ContNoRegretProblem
 from ContNoRegret.utils import CNR_worker, plot_results, save_results, circular_tour
 from ContNoRegret.animate import save_animations
 from ContNoRegret.Potentials import (ExponentialPotential, IdentityPotential, pNormPotential, CompositePotential,
-                                        ExpPPotential, PExpPotential, HuberPotential, LogtasticPotential, FractionalLinearPotential)
+                                        ExpPPotential, pExpPotential, HuberPotential, LogtasticPotential, FractionalLinearPotential)
 
 # this is the location of the folder for the results
 results_path = '/home/max/Documents/CNR_results/'

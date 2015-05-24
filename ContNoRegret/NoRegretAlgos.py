@@ -12,7 +12,7 @@ from .LossFunctions import ZeroLossFunction, AffineLossFunction, ctypes_integrat
 from .utils import compute_etaopt, quicksample
 from .DualAveraging import compute_nustar
 from .Domains import nBox, UnionOfDisjointnBoxes, DifferenceOfnBoxes
-from .Potentials import ExponentialPotential, IdentityPotential
+from .Potentials import ExponentialPotential
 from scipy.stats import linregress
   
 
