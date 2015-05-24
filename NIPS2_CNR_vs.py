@@ -2,7 +2,7 @@
 Comparison of Continuous No-Regret Algorithms for the 2nd NIPS paper
 
 @author: Maximilian Balandat
-@date: May 22, 2015
+@date: May 24, 2015
 '''
 
 # Set up infrastructure and basic problem parameters
@@ -35,8 +35,8 @@ T = 5000 # Time horizon
 M = 10.0 # Uniform bound on the function (in the dual norm)
 L = 5.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
-Ngrid = 500000 # Number of gridpoints for the sampling step
-H = 0.1 # strict convexity parameter (lower bound on evals of Q)
+Ngrid = 250000 # Number of gridpoints for the sampling step
+# H = 0.1 # strict convexity parameter (lower bound on evals of Q)
 
 doms = [unitbox(2)] + [hollowbox(2, ratio=r) for r in [0.75, 0.5, 0.25]]
 
@@ -51,14 +51,14 @@ for dom in doms:
 
     # Now create some random loss functions
     mus = dom.sample_uniform(T)
-    lossfuncs, Mnew, lambdamax = random_QuadraticLosses(dom, mus, L, M, pd=True, H=H)
+    lossfuncs, Mnew, lambdamax = random_QuadraticLosses(dom, mus, L, M, pd=True)
     M2 = np.max([lossfunc.norm(2, tmpfolder=tmpfolder) for lossfunc in lossfuncs])
 
     # create the problem
     problems.append(ContNoRegretProblem(dom, lossfuncs, L, Mnew, desc=desc))
   
 # Select a couple of potentials for the Dual Averaging algorithm
-potentials = [ExponentialPotential(), IdentityPotential(M=M2)]
+potentials = [ExponentialPotential(), pNormPotential(1.5)]
   
 # the following runs fine if the script is the __main__ method, but crashes when running from ipython
 pool = mp.Pool(processes=mp.cpu_count()-1)
