@@ -199,7 +199,7 @@ class pNormPotential(OmegaPotential):
     def gen_ccode(self):
         """ Generates a c-code snippet used for fast numerical integration """
         return ['   double z = -eta*(loss + nu);\n',
-                '   if(z>{}}){\n'.format(self.u0-1),
+                '   if(z>{}){{\n'.format(self.u0-1),
                 '     return pow(1.0 + z - {}, {});}}\n'.format(self.u0, 1/(self.p - 1)),
                 '   else{\n',
                 '     return 0.0;}\n',

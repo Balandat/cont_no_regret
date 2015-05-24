@@ -200,7 +200,7 @@ class ContNoRegretProblem(object):
                     except AttributeError: pass
                 else:
                     if (isinstance(cumLossFunc, AffineLossFunction) and isinstance(pot, ExponentialPotential) and
-                        isinstance(self.domain, nBox) or isinstance(self.domain, UnionOfDisjointnBoxes)):
+                        isinstance(self.domain, nBox)):
                         action = quicksample(np.array(self.domain.bounds), np.repeat(np.array(cumLossFunc.a, ndmin=2), N, axis=0), etas[t])
                     else:
                         nustar = compute_nustar(self.domain, pot, etas[t], cumLossFunc, self.M, nustar, 

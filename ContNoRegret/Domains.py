@@ -361,3 +361,8 @@ def hollowbox(n, ratio=0.5):
     hbox.v = 0.5*(a-b)*a**(n-1)
     return hbox
 
+def vboxes(n, v):
+    """ Returns a UnionOfDisjointnBoxes with specified v """
+    a, b = (1-v)**(1/n), v**(1/n)
+    return UnionOfDisjointnBoxes([nBox([(0,a)*n]), nBox([(-b,0)*n])])
+
