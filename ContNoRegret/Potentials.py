@@ -98,17 +98,19 @@ class ExponentialPotential(OmegaPotential):
 class IdentityPotential(OmegaPotential):
     """ The identity potential Phi(x) = x, which results in the Euclidean Projection  """
     
-    def __init__(self, desc='IdPot'):
+    def __init__(self, desc='IdPot', **kwargs):
         """ Constructor """
+        if kwargs.get('M') is not None:
+            self.M = kwargs.get('M')
         self.desc = desc
         
     def phi(self, u):
         """ Returns phi(u), the value of the zero-potential at the points u"""
-        return u
+        return (u>=0)*u
         
     def phi_prime(self, u):
         """ Returns phi'(u), the first derivative of the zero-potential at the points u """
-        return np.ones_like(u)
+        return (u>=0)*np.ones_like(u)
  
     def phi_double_prime(self, u):
         """ Returns phi''(u), the second derivative of the zero-potential at the points u """
@@ -126,6 +128,11 @@ class IdentityPotential(OmegaPotential):
     def isconvex(self):
         """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
         return True
+
+    def l_psi(self):
+        """ Returns the strong convexity constant l_psi and the corresponding norm 
+            of the Csizar divergence associated with the pNorm Potential. """
+        return 1, 2
 
     def bounds_asymp(self):
         """ Returns constants C and epsilon s.t. f_phi(x) <= C x**(1+epsilon) 
@@ -156,15 +163,15 @@ class pNormPotential(OmegaPotential):
         
     def phi(self, u):
         """ Returns phi(u), the value of the pNorm-potential at the points u"""
-        return np.sign(u)*np.abs(u)**(1/(self.p - 1))
+        return (u>=0)*np.abs(u)**(1/(self.p - 1))
         
     def phi_prime(self, u):
         """ Returns phi'(u), the first derivative of the pNorm-potential at the points u """
-        return np.abs(u)**((2 - self.p)/(self.p - 1))/(self.p - 1)
+        return (u>=0)*np.abs(u)**((2 - self.p)/(self.p - 1))/(self.p - 1)
  
     def phi_double_prime(self, u):
         """ Returns phi''(u), the second derivative of the pNorm-potential at the points u """
-        return np.sign(u)*(2 - self.p)/((self.p - 1)**2)*np.abs(u)**((3 - 2*self.p)/(self.p - 2))
+        return (u>=0)*(2 - self.p)/((self.p - 1)**2)*np.abs(u)**((3 - 2*self.p)/(self.p - 2))
      
     def phi_inv(self, u):
         """ Returns phi^{-1}(u), the inverse function of the pNorm-potential at the points u """

@@ -31,7 +31,7 @@ show_plots = False
 save_anims = False
 show_anims = False
 
-T = 250 # Time horizon
+T = 5000 # Time horizon
 M = 10.0 # Uniform bound on the function (in the dual norm)
 L = 5.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
@@ -45,6 +45,7 @@ with open(__file__, 'r') as f:
     thisfile = f.read()
 
 problems = []
+alpha_ec = []
 
 # loop over the domains with different dimension
 for dom in doms:
@@ -52,8 +53,8 @@ for dom in doms:
     # Now create some random loss functions
     mus = dom.sample_uniform(T)
     lossfuncs, Mnew, lambdamax = random_QuadraticLosses(dom, mus, L, M, pd=True, H=H)
-    alpha_ec = H/dom.diameter/lambdamax
-    #M2 = np.max([lossfunc.norm(2, tmpfolder=tmpfolder) for lossfunc in lossfuncs])
+    alpha_ec.append(H/lambdamax**2)
+    # M2 = np.max([lossfunc.norm(2, tmpfolder=tmpfolder) for lossfunc in lossfuncs])
 
     # create the problem
     problems.append(ContNoRegretProblem(dom, lossfuncs, L, Mnew, desc=desc))
@@ -65,15 +66,15 @@ potentials = [ExponentialPotential(), pNormPotential(1.5)]
 pool = mp.Pool(processes=mp.cpu_count()-1)
 processes = []
 
-for prob in problems:
+for i,prob in enumerate(problems):
     for pot in potentials:
         processes.append(pool.apply_async(CNR_worker, (prob,N,'DA'), {'opt_rate':True, 'Ngrid':Ngrid, 
 					  'potential':pot, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':pot.desc})) 
     processes.append(pool.apply_async(CNR_worker, (prob,N,'GP'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'GP', 'tmpfolder':tmpfolder}))
     processes.append(pool.apply_async(CNR_worker, (prob,N,'OGD'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'OGD', 'tmpfolder':tmpfolder, 'H':H}))
-    processes.append(pool.apply_async(CNR_worker, (prob,N,'ONS'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'ONS', 'tmpfolder':tmpfolder, 'alpha':alpha_ec}))
-    processes.append(pool.apply_async(CNR_worker, (prob,N,'FTAL'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'FTAL', 'tmpfolder':tmpfolder, 'alpha':alpha_ec}))
-    processes.append(pool.apply_async(CNR_worker, (prob,N,'EWOO'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'EWOO', 'tmpfolder':tmpfolder, 'alpha':alpha_ec}))
+    processes.append(pool.apply_async(CNR_worker, (prob,N,'ONS'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'ONS', 'tmpfolder':tmpfolder, 'alpha':alpha_ec[i]}))
+    processes.append(pool.apply_async(CNR_worker, (prob,N,'FTAL'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'FTAL', 'tmpfolder':tmpfolder, 'alpha':alpha_ec[i]}))
+    processes.append(pool.apply_async(CNR_worker, (prob,N,'EWOO'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'EWOO', 'tmpfolder':tmpfolder, 'alpha':alpha_ec[i]}))
         
 #OGDkwargs = {'H':H, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'OGD'}
 #processes += [pool.apply_async(CNR_worker, (prob, N, 'OGD'), OGDkwargs) for prob in problems]
@@ -89,6 +90,7 @@ for prob in problems:
 
 # wait for the processes to finish an collect the results (as file handlers)
 resultfiles = [process.get() for process in processes]
+print(resultfiles)
 
 # read the results from file
 #results = []

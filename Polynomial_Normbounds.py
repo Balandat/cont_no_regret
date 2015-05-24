@@ -58,7 +58,8 @@ Minf, M2 = np.max(inf_norms), np.max(two_norms)
 prob = ContNoRegretProblem(dom, lossfuncs, L, Minf, desc='PolyNormBounds')
     
 # Select a number of potentials for the Dual Averaging algorithm
-potentials = [ExponentialPotential(), pNormPotential(1.05, M=Minf), pNormPotential(2, M=M2)] 
+#potentials = [ExponentialPotential(), pNormPotential(1.05, M=Minf), IdentityPotential(M=M2)] 
+potentials = [ExponentialPotential(), IdentityPotential(M=M2)]
 #[ExponentialPotential(), pNormPotential(1.05, M=Minf), pNormPotential(2, M=M2)]
 
   

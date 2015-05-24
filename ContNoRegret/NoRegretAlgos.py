@@ -12,7 +12,7 @@ from .LossFunctions import ZeroLossFunction, AffineLossFunction, ctypes_integrat
 from .utils import compute_etaopt, quicksample
 from .DualAveraging import compute_nustar
 from .Domains import nBox, UnionOfDisjointnBoxes, DifferenceOfnBoxes
-from .Potentials import ExponentialPotential
+from .Potentials import ExponentialPotential, IdentityPotential
 from scipy.stats import linregress
   
 
@@ -158,7 +158,8 @@ class ContNoRegretProblem(object):
         os.makedirs('results', exist_ok=True)
         with open('results/{}_n{}.piggl'.format(label, self.domain.n), 'wb') as f:
             pickle.dump(results, f, pickle.HIGHEST_PROTOCOL)     
-            return True
+        del results
+        return True
  
     def simulate(self, N, etas='opt', algo='DA', Ngrid=100000, **kwargs):
         """ Simulates the result of running the No-Regret algorithm (N times).
