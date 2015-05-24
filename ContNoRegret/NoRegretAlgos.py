@@ -28,8 +28,8 @@ class ContNoRegretProblem(object):
         self.optaction, self.optval = None, None
         self.desc = desc
         self.data = []
-        if domain.n == 2:
-            self.pltpoints = self.create_pltpoints(1000)
+        #if domain.n == 2:
+        #    self.pltpoints = self.create_pltpoints(1000)
                    
     def cumulative_loss(self, points):
         """ Computes the cumulative loss at the given points """
@@ -158,8 +158,9 @@ class ContNoRegretProblem(object):
         os.makedirs('results', exist_ok=True)
         with open('results/{}_n{}.piggl'.format(label, self.domain.n), 'wb') as f:
             pickle.dump(results, f, pickle.HIGHEST_PROTOCOL)     
-        del results
+        del results, regrets
         return True
+
  
     def simulate(self, N, etas='opt', algo='DA', Ngrid=100000, **kwargs):
         """ Simulates the result of running the No-Regret algorithm (N times).
@@ -207,6 +208,7 @@ class ContNoRegretProblem(object):
                         weights = np.maximum(pot.phi(-etas[t]*(approxL + nustar)), 0)
                         # let us plot the probability distribution
                         action = gridpoints[np.random.choice(weights.shape[0], size=N, p=weights/np.sum(weights))]
+                        del weights
                     try:
                         self.data.append([np.maximum(pot.phi(-etas[t]*(cumLossFunc.val(pltpoints) + nustar)), 0) for pltpoints in self.pltpoints])
                     except AttributeError: pass

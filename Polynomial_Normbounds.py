@@ -26,10 +26,10 @@ show_plots = False
 save_anims = False
 show_anims = False
 
-coeffs = coeffs + coeffs + coeffs
-exponents = exponents + exponents + exponents
+#coeffs = coeffs + coeffs + coeffs
+#exponents = exponents + exponents + exponents
 
-T = len(coeffs) # Time horizon
+T = 100 # Time horizon
 L = 5.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
 Ngrid = 500000 # Number of gridpoints for the sampling step
@@ -50,6 +50,10 @@ with open(__file__, 'r') as f:
 #         if normbounds[nus[0]][i]/normbounds[nus[1]][i] > 5:
 #             lossfuncs.append(tmpfuncs[i])
         
+# bootstrap by sampling from funcitons
+idx = np.random.choice(len(coeffs), T)
+coeffs = [coeffs[i] for i in idx]
+exponents = [exponents[i] for i in idx]
 
 lossfuncs = [PolynomialLossFunction(dom, coeff, expo) for coeff,expo in zip(coeffs,exponents)]
 Minf, M2 = np.max(inf_norms), np.max(two_norms)
@@ -58,8 +62,7 @@ Minf, M2 = np.max(inf_norms), np.max(two_norms)
 prob = ContNoRegretProblem(dom, lossfuncs, L, Minf, desc='PolyNormBounds')
     
 # Select a number of potentials for the Dual Averaging algorithm
-#potentials = [ExponentialPotential(), pNormPotential(1.05, M=Minf), IdentityPotential(M=M2)] 
-potentials = [ExponentialPotential(), IdentityPotential(M=M2)]
+potentials = [ExponentialPotential(), pNormPotential(1.05, M=Minf), IdentityPotential(M=M2)] 
 #[ExponentialPotential(), pNormPotential(1.05, M=Minf), pNormPotential(2, M=M2)]
 
   
@@ -68,7 +71,7 @@ pool = mp.Pool(processes=mp.cpu_count()-1)
 processes = []
 
 DAkwargs = [{'opt_rate':True, 'Ngrid':Ngrid, 'potential':pot, 'pid':i, 
-             'tmpfolder':tmpfolder, 'label':pot.desc} for i,pot in enumerate(potentials)]
+             'tmpfolder':tmpfolder, 'label':'norm_'+pot.desc} for i,pot in enumerate(potentials)]
 processes += [pool.apply_async(CNR_worker, (prob, N, 'DA'), kwarg) for kwarg in DAkwargs]
 
 # wait for the processes to finish an collect the results

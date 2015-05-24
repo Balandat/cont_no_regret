@@ -47,34 +47,48 @@ with open(__file__, 'r') as f:
 problems = []
 alpha_ec = []
 
-# loop over the domains with different dimension
-for dom in doms:
+doms = []
+# recover the losses from previous run for comparison. 
+for i,n in enumerate([3,4]):
+    with open('results/ExpPot_n{}.piggl'.format(n), 'rb') as f:
+        result = pickle.load(f)                
+    problems.append(result.problem)
+    doms.append(problems[-1].domain)
+    Dmus = [doms[-1].compute_Dmu(loss.mu) for loss in problems[-1].lossfuncs]
+    lambdamax = np.max([np.min((L/Dmu, 2*M/Dmu**2)) for Dmu in Dmus])
+    alpha_ec.append(H/lambdamax**2) 
 
-    # Now create some random loss functions
-    mus = dom.sample_uniform(T)
-    lossfuncs, Mnew, lambdamax = random_QuadraticLosses(dom, mus, L, M, pd=True, H=H)
-    alpha_ec.append(H/lambdamax**2)
-    # M2 = np.max([lossfunc.norm(2, tmpfolder=tmpfolder) for lossfunc in lossfuncs])
 
-    # create the problem
-    problems.append(ContNoRegretProblem(dom, lossfuncs, L, Mnew, desc=desc))
+# # loop over the domains with different dimension
+#for dom in doms:
+#
+#    # Now create some random loss functions
+#    mus = dom.sample_uniform(T)
+#    lossfuncs, Mnew, lambdamax = random_QuadraticLosses(dom, mus, L, M, pd=True, H=H)
+#    alpha_ec.append(H/lambdamax**2)
+#    # M2 = np.max([lossfunc.norm(2, tmpfolder=tmpfolder) for lossfunc in lossfuncs])
+#
+#    # create the problem
+#    problems.append(ContNoRegretProblem(dom, lossfuncs, L, Mnew, desc=desc))
   
 # Select a couple of potentials for the Dual Averaging algorithm
-potentials = [ExponentialPotential(), pNormPotential(1.5)]
+potentials = [pNormPotential(1.5)]
   
 # the following runs fine if the script is the __main__ method, but crashes when running from ipython
-pool = mp.Pool(processes=mp.cpu_count()-1)
+#pool = mp.Pool(processes=mp.cpu_count()-1
+pool = mp.Pool(2)
 processes = []
 
 for i,prob in enumerate(problems):
     for pot in potentials:
         processes.append(pool.apply_async(CNR_worker, (prob,N,'DA'), {'opt_rate':True, 'Ngrid':Ngrid, 
 					  'potential':pot, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':pot.desc})) 
-    processes.append(pool.apply_async(CNR_worker, (prob,N,'GP'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'GP', 'tmpfolder':tmpfolder}))
-    processes.append(pool.apply_async(CNR_worker, (prob,N,'OGD'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'OGD', 'tmpfolder':tmpfolder, 'H':H}))
-    processes.append(pool.apply_async(CNR_worker, (prob,N,'ONS'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'ONS', 'tmpfolder':tmpfolder, 'alpha':alpha_ec[i]}))
-    processes.append(pool.apply_async(CNR_worker, (prob,N,'FTAL'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'FTAL', 'tmpfolder':tmpfolder, 'alpha':alpha_ec[i]}))
-    processes.append(pool.apply_async(CNR_worker, (prob,N,'EWOO'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'EWOO', 'tmpfolder':tmpfolder, 'alpha':alpha_ec[i]}))
+    #processes.append(pool.apply_async(CNR_worker, (prob,N,'GP'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'GP', 'tmpfolder':tmpfolder}))
+    #processes.append(pool.apply_async(CNR_worker, (prob,N,'OGD'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'OGD', 'tmpfolder':tmpfolder, 'H':H}))
+    #processes.append(pool.apply_async(CNR_worker, (prob,N,'ONS'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'ONS', 'tmpfolder':tmpfolder, 'alpha':alpha_ec[i]}))
+    #processes.append(pool.apply_async(CNR_worker, (prob,N,'FTAL'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'FTAL', 'tmpfolder':tmpfolder, 'alpha':alpha_ec[i]}))
+    if prob.domain.n == 4:
+        processes.append(pool.apply_async(CNR_worker, (prob,N,'EWOO'), {'Ngrid':Ngrid, 'pid':len(processes), 'label':'EWOO', 'tmpfolder':tmpfolder, 'alpha':alpha_ec[i]}))
         
 #OGDkwargs = {'H':H, 'Ngrid':Ngrid, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':'OGD'}
 #processes += [pool.apply_async(CNR_worker, (prob, N, 'OGD'), OGDkwargs) for prob in problems]
