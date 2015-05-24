@@ -7,6 +7,7 @@ A collection of Domain classes for the Continuous No Regret Problem.
 
 import numpy as np
 from scipy.misc import factorial
+from scipy.optimize import brentq
 from cvxopt import solvers, matrix, spdiag, spmatrix
 
 class Domain(object):
@@ -364,5 +365,26 @@ def hollowbox(n, ratio=0.5):
 def vboxes(n, v):
     """ Returns a UnionOfDisjointnBoxes with specified v """
     a, b = (1-v)**(1/n), v**(1/n)
-    return UnionOfDisjointnBoxes([nBox([(0,a)*n]), nBox([(-b,0)*n])])
+    return UnionOfDisjointnBoxes([nBox([(0,a),]*n), nBox([(-b,0),]*n)])
+
+def vL(v, Npath=None):
+    """ Returns an L-shaped UnionOfDisjointnBoxes with sepcified v in dimension 2"""
+    if v == 1:
+        L = nBox([(0,1),(0,1)])
+    else:  
+        a = (1+v, 1-v)
+        b = (v, 1)
+        L = UnionOfDisjointnBoxes([nBox([(0,b[0]), (0,b[1])]), nBox([(b[0], a[0]), (0,a[1])])])
+        L.v = v
+    if Npath is not None:
+        if v == 1:
+            path = np.array([np.linspace(0.05, 0.95, Npath)]*2).T
+        else:
+            N1 = np.floor(0.25*Npath)
+            N2 = Npath - N1
+            path = np.array([np.concatenate([np.linspace(0.95*a[0], 0.5*b[0], N1), 0.5*b[0]*np.ones(N2)]),
+                             np.concatenate([0.5*a[1]*np.ones(N1), np.linspace(0.5*a[1], 0.95*b[1], N2)])]).T
+        return L, path
+    else:
+        return L
 
