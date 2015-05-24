@@ -186,6 +186,32 @@ def plot_results(results, offset=500, directory=None, show=True):
             plt.savefig(filename + 'loglogtavgloss.pdf', bbox_inches='tight', dpi=300)
         if show:
             plt.show()
+
+
+def plot_dims(results, directory=None, show=True):
+        """ Plots and shows or saves (or both) the simulation results """
+        # set up figures
+#         ylimits = [np.Infinity, -np.Infinity]
+        f = plt.figure()
+        plt.title(r'log time-avg. cumulative regret, {} losses'.format(results[0].problem.lossfuncs[0].desc))
+        plt.xlabel('t')   
+        dim_styles = {2:'--', 3:'-.', 4:':'}
+        # and now plot, depending on what data is there
+        for loss_results in results:
+            for result in loss_results:
+                lltsavg = plt.plot(np.arange(1,result.problem.T+1), result.regs_norate['tsavg'][0], linewidth=2.0, 
+                                   linestyle=dim_styles[result.dim], label=result.label, rasterized=True)
+                plt.fill_between(np.arange(1,result.problem.T+1), result.regs_norate['tavg_perc_10'][0], linestyle=dim_styles[result.dim],
+                                result.regs_norate['tavg_perc_90'][0], color=lltsavg[0].get_color(), alpha=0.1, rasterized=True)         
+        # make plots pretty and show legend
+        plt.yscale('log'), plt.xscale('log')
+        plt.legend(loc='upper right', prop={'size':13}, frameon=False) 
+        if directory:
+            os.makedirs(directory+'figures/', exist_ok=True) # this could probably use a safer implementation  
+            filename = '{}{}_{}_'.format(directory+'figures/', results[0].problem.desc, results[0].problem.lossfuncs[0].desc)
+            plt.savefig(filename + 'loglogtavgloss.pdf', bbox_inches='tight', dpi=300)
+        if show:
+            plt.show()
             
 
 def save_results(results, directory):
