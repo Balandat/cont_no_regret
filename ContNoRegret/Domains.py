@@ -270,6 +270,28 @@ class DifferenceOfnBoxes(Domain):
             newsamples = self.outer.sample_uniform(N/(N-len(samples))*self.outer.volume/self.volume*N)
             samples = np.vstack((samples, newsamples[self.iselement(newsamples)]))
         return samples[0:N]
+    
+    def to_UoDnB(self):
+        if (self.n == 2) and (len(self.inner) == 1):
+            nboxes = []
+            bnds_inner, bnds_outer = self.inner[0].bounds, self.outer.bounds
+            bounds = [[(bnds_outer[0][0], bnds_inner[0][0]), bnds_outer[1]],
+                      [(bnds_inner[0][1], bnds_outer[0][1]), bnds_outer[1]],
+                      [bnds_outer[0], (bnds_outer[1][0], bnds_inner[1][0])],
+                      [bnds_outer[0], (bnds_inner[1][1], bnds_outer[1][1])]]                       
+            return UnionOfDisjointnBoxes([nBox(bound) for bound in bounds])
+        else:
+            raise NotImplementedError('Sorry, to_nboxes for now only works in dimension 2 with a single inner box')     
+
+        xs = np.concatenate([np.linspace(0.5*(bnds_inner[0][0]+bnds_outer[0][0]), 0.5*(bnds_inner[0][1]+bnds_outer[0][1]), weights[0]*N),
+                             0.5*(bnds_outer[0][1]+bnds_inner[0][1])*np.ones(weights[1]*N),
+                             np.linspace(0.5*(bnds_inner[0][1]+bnds_outer[0][1]), 0.5*(bnds_inner[0][0]+bnds_outer[0][0]), weights[2]*N),
+                             0.5*(bnds_outer[0][0]+bnds_inner[0][0])*np.ones(weights[3]*N)])
+        ys = np.concatenate([0.5*(bnds_outer[1][0]+bnds_inner[1][0])*np.ones(weights[0]*N),
+                             np.linspace(0.5*(bnds_outer[1][0]+bnds_inner[1][0]), 0.5*(bnds_inner[1][1]+bnds_outer[1][1]), weights[1]*N),
+                             0.5*(bnds_outer[1][1]+bnds_inner[1][1])*np.ones(weights[2]*N),
+                             np.linspace(0.5*(bnds_inner[1][1]+bnds_outer[1][1]), 0.5*(bnds_inner[1][0]+bnds_outer[1][0]), weights[3]*N)])
+        return np.array([xs, ys]).T
 
     def project(self, points):
         """ Projects the points in 'points' onto the domain (i.e. returns

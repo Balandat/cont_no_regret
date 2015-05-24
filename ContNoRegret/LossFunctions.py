@@ -291,12 +291,16 @@ class QuadraticLossFunction(LossFunction):
 
     def norm(self, p, **kwargs):
         """ Computes the p-Norm of the loss function over the domain """
+        nboxes = None
         if isinstance(self.domain, nBox):
             nboxes = [self.domain]
         elif isinstance(self.domain, UnionOfDisjointnBoxes):
             nboxes = self.domain.nboxes
-        else:
-            raise Exception('Sorry, so far only nBox and UnionOfDisjointnBoxes are supported!')
+        elif isinstance(self.domain, DifferenceOfnBoxes):
+            if (self.domain.inner) == 1:
+                nboxes = self.domain.to_nboxes()
+        if nboxes is None:
+            raise Exception('Sorry, so far only nBox, UnionOfDisjointnBoxes and hollowboxes are supported!')
         if np.isinf(p):
             return self.max()
         else:
