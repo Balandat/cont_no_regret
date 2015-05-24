@@ -201,8 +201,8 @@ def plot_dims(results, directory=None, show=True):
             for result in loss_results:
                 lltsavg = plt.plot(np.arange(1,result.problem.T+1), result.regs_norate['tsavg'][0], linewidth=2.0, 
                                    linestyle=dim_styles[result.dim], label=result.label, rasterized=True)
-                plt.fill_between(np.arange(1,result.problem.T+1), result.regs_norate['tavg_perc_10'][0], linestyle=dim_styles[result.dim],
-                                result.regs_norate['tavg_perc_90'][0], color=lltsavg[0].get_color(), alpha=0.1, rasterized=True)         
+                plt.fill_between(np.arange(1,result.problem.T+1), result.regs_norate['tavg_perc_10'][0], result.regs_norate['tavg_perc_90'][0], 
+                                 linestyle=dim_styles[result.dim], color=lltsavg[0].get_color(), alpha=0.1, rasterized=True)         
         # make plots pretty and show legend
         plt.yscale('log'), plt.xscale('log')
         plt.legend(loc='upper right', prop={'size':13}, frameon=False) 
