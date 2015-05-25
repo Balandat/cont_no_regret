@@ -434,7 +434,8 @@ class ExpPPotential(OmegaPotential):
     
     def phi(self, u):
         """ Returns phi(u), the value of the ExpP-potential at the points u"""
-        return (u<=self.u0-1)*np.exp(self.gamma*(u-self.u0)) + (u>self.u0)*(self.gamma*(self.p-1)*(u-self.u0))**(1/(self.p-1))
+        return ( (u<=self.u0-1)*np.exp(self.gamma*(u-self.u0)) 
+                 + (u>self.u0)*(self.gamma*(self.p-1)*np.abs(u-self.u0))**(1/(self.p-1)) )
         
     def phi_inv(self, u):
         """ Returns phi^{-1}(u), the inverse function of the zero-potential at the points u """
@@ -479,8 +480,8 @@ class pExpPotential(OmegaPotential):
         
     def phi(self, u):
         """ Returns phi(u), the value of the Pexp-potential at the points u"""
-        return ((u>self.umin)*(u<self.u0)*(self.gamma*(self.p-1)*(u-self.umin))**(1/(self.p-1)) + 
-                (u>=self.u0)*np.exp(self.gamma*(u-self.u0)/(self.p-1)))
+        return ( (u>self.umin)*(u<self.u0)*(self.gamma*(self.p-1)*np.abs(u-self.umin))**(1/(self.p-1)) + 
+                 (u>=self.u0)*np.exp(self.gamma*(u-self.u0)/(self.p-1)) )
 
     def phi_inv(self, u):
         """ Returns phi^{-1}(u), the inverse function of the zero-potential at the points u """
