@@ -8,6 +8,8 @@ Collection of utility functions to analyze Continuous No-Regret algorithms
 import numpy as np
 import pickle, os
 from matplotlib import pyplot as plt
+import matplotlib.colors as colors
+import matplotlib.cm as cm
 from scipy.stats import linregress 
 from .Domains import nBox, DifferenceOfnBoxes
 
@@ -212,7 +214,39 @@ def plot_dims(results, directory=None, show=True):
             plt.savefig(filename + 'loglogtavgloss.pdf', bbox_inches='tight', dpi=300)
         if show:
             plt.show()
-            
+
+
+def plot_u0s(results, directory=None, show=True, bounds=False):
+        """ Plots and shows or saves (or both) the simulation results """
+        # set up figures
+        f = plt.figure()
+        plt.title(r'log time-avg. cumulative regret, {} losses'.format(results[0][0].problem.lossfuncs[0].desc))
+        plt.xlabel('t')
+        colors = ['b', 'r', 'g', 'k', 'c' ]
+        loss_styles = ['-', '--', '-.', ':']
+#         scalarMap = cm.ScalarMappable(norm=colors.Normalize(vmin=0, vmax=len(results[0])), cmap=plt.get_cmap('hsv'))
+        # and now plot, depending on what data is there
+        for i,loss_results in enumerate(results):
+            for j,result in enumerate(loss_results):
+                lltsavg = plt.plot(np.arange(1,result.problem.T+1), result.regs_norate['tsavg'][0], linewidth=2.0, 
+                                   linestyle=loss_styles[i], color=colors[j], label=result.label, rasterized=True)
+#                 plt.fill_between(np.arange(1,result.problem.T+1), result.regs_norate['tavg_perc_10'][0], result.regs_norate['tavg_perc_90'][0], 
+#                                  linestyle=loss_styles[i], #color=lltsavg[0].get_color(), 
+#                                  alpha=0.1, rasterized=True)
+                if bounds:
+                    plt.plot(np.arange(1,result.problem.T+1), result.regs_norate['tsavgbnd'][0], 
+                                 #color=lltsavg[0].get_color(), 
+                                 color=colors[j], linewidth=3, rasterized=True)      
+        # make plots pretty and show legend
+        plt.yscale('log'), plt.xscale('log')
+        plt.legend(loc='lower left', prop={'size':10}, frameon=False) 
+        if directory:
+            os.makedirs(directory+'figures/', exist_ok=True) # this could probably use a safer implementation  
+            filename = '{}{}_{}_'.format(directory+'figures/', results[0][0].problem.desc, results[0][0].problem.lossfuncs[0].desc)
+            plt.savefig(filename + 'loglogtavgloss.pdf', bbox_inches='tight', dpi=300)
+        if show:
+            plt.show()
+ 
 
 def save_results(results, directory):
     """ Serializes a results object for persistent storage using the pickle module. """ 
