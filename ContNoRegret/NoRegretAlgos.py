@@ -12,7 +12,7 @@ from .LossFunctions import ZeroLossFunction, AffineLossFunction, ctypes_integrat
 from .utils import compute_etaopt, quicksample
 from .DualAveraging import compute_nustar
 from .Domains import nBox, UnionOfDisjointnBoxes, DifferenceOfnBoxes
-from .Potentials import ExponentialPotential
+from .Potentials import ExponentialPotential, pExpPotential
 from scipy.stats import linregress
   
 
@@ -88,11 +88,11 @@ class ContNoRegretProblem(object):
             reg_info = {'savg':[], 'tsavg':[], 'tsavgbnd':[], 'perc_10':[], 
                         'perc_90':[], 'tavg_perc_10':[], 'tavg_perc_90':[]}
             if  kwargs.get('opt_rate') == True:
-                if isinstance(pot, ExponentialPotential):
+                if (isinstance(pot, ExponentialPotential) or isinstance(pot, pExpPotential)):
                     theta = np.sqrt((pot.c_omega*(self.domain.n-np.log(self.domain.v)) 
                                      + pot.d_omega*self.domain.v)/2/self.M**2)
                     alpha = None
-                    print('Simulating {0}, {1} (HEDGE), opt. rate '.format(algo, pot.desc) + 
+                    print('Simulating {0}, {1}, opt. rate '.format(algo, pot.desc) + 
                           'eta_t={0:.3f} sqrt(log t/t)'.format(theta))
                     etas = theta*np.sqrt(np.log(1+np.arange(self.T)+1)/(1+np.arange(self.T)))
                 else:
@@ -267,16 +267,10 @@ class ContNoRegretProblem(object):
             else:
                 cumloss.append(cumloss[-1] + loss)
                 cumLossFunc = cumLossFunc + lossfunc
-            # compute and append regret -- resort to gridding for now
-#             print(gridpoints.shape)
-#             print(lossfunc.val(gridpoints))
+            # compute and append regret
             approxL += lossfunc.val(gridpoints)
-#             optval = np.min(approxL)
-#             print('computing optimal value... ')
             optval = cumLossFunc.min()
-#             print('found optimal value... ')
             regrets.append(cumloss[-1] - optval)
-#             return lossfunc, gridpoints, approxL
         return np.transpose(np.array(actions), (1,0,2)), np.transpose(np.array(losses)), np.transpose(np.array(regrets))
     
     
@@ -299,7 +293,7 @@ class ContNoRegretProblem(object):
         if algo == 'DA':
             pot, v = kwargs['potential'], self.domain.v
             alpha, theta = kwargs['alpha'], kwargs['theta']
-            if isinstance(pot, ExponentialPotential):
+            if (isinstance(pot, ExponentialPotential) or isinstance(pot, pExpPotential)):
                 reg_bnd = self.M*np.sqrt(8*(pot.c_omega*(n-np.log(v)) + pot.d_omega*v))*np.sqrt(np.log(t+1)/t) + L*D/t
             else:
                 lpsi, p_dualnorm = pot.l_psi()
