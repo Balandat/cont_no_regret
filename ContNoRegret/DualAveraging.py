@@ -53,9 +53,10 @@ def compute_nustar(dom, potential, eta, Loss, M, nu_prev, eta_prev, t,
                 success = False
                 while not success:
                     try:
-                        nustar, r = brentq(f, a, b, full_output=True)
-                        if isinstance(potential, IdentityPotential):
-                            print(r.root, r.iterations, r.function_calls, r.converged, r.flag)
+                        nustar = brentq(f, a, b)
+#                         nustar, r = brentq(f, a, b, full_output=True)
+#                         if isinstance(potential, IdentityPotential):
+#                             print(r.root, r.iterations, r.function_calls, r.converged, r.flag)
                         success = True
                     except ValueError:
                         print('WARINING: PROCESS {} HAS ENCOUNTERED f(a)!=f(b)!'.format(pid))
@@ -69,12 +70,12 @@ def compute_nustar(dom, potential, eta, Loss, M, nu_prev, eta_prev, t,
                                       opts=[{'epsabs':1.49e-4, 'epsrel':1.49e-3}]*dom.n)[0] for nbox in dom.inner]))
                 nustar = np.log(integral)/eta
             else:
-                if isinstance(potential, IdentityPotential):
-                    grid = dom.grid(500000)
-                    f = lambda nu: np.sum(potential.phi(-eta*(Loss.val(grid)+nu)))/len(grid)
-                else:
-                    f = lambda nu: (nquad(lib.f, dom.outer.bounds, [nu], opts=[{'epsabs':1.49e-4, 'epsrel':1.49e-3}])[0] 
-                                    - np.sum([nquad(lib.f, nbox.bounds, [nu])[0] for nbox in dom.inner]) - 1)
+#                 if isinstance(potential, IdentityPotential):
+#                     grid = dom.grid(500000)
+#                     f = lambda nu: np.sum(potential.phi(-eta*(Loss.val(grid)+nu)))/len(grid)
+#                 else:
+                f = lambda nu: (nquad(lib.f, dom.outer.bounds, [nu], opts=[{'epsabs':1.49e-4, 'epsrel':1.49e-3}])[0] 
+                                - np.sum([nquad(lib.f, nbox.bounds, [nu])[0] for nbox in dom.inner]) - 1)
                 success = False
                 while not success:
                     try:
@@ -88,6 +89,7 @@ def compute_nustar(dom, potential, eta, Loss, M, nu_prev, eta_prev, t,
         return nustar
     finally: 
         dlclose(lib._handle) # this is to release the lib, so we can import the new version
+        del lib # can this fix our memory leak?
         try:
             os.remove(tmpfile+'.c') # clean up
             os.remove(tmpfile+'.dylib') # clean up
