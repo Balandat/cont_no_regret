@@ -2,14 +2,14 @@
 Basic Algorithms for the Continuous No-Regret Problem.
 
 @author: Maximilian Balandat
-@date May 23, 2015
+@date May 25, 2015
 '''
 
 import numpy as np
-import os
-import pickle
+# import os
+# import pickle
 from .LossFunctions import ZeroLossFunction, AffineLossFunction, ctypes_integrate
-from .utils import compute_etaopt, quicksample
+from .utils import quicksample
 from .DualAveraging import compute_nustar
 from .Domains import nBox, UnionOfDisjointnBoxes, DifferenceOfnBoxes
 from .Potentials import ExponentialPotential, pExpPotential
@@ -108,43 +108,49 @@ class ContNoRegretProblem(object):
                 self.parse_regrets(reg_info, regrets) 
                 self.regret_bound(reg_info, algo, alpha=alpha, theta=theta, potential=pot)
                 result_args['regs_DAopt'] = reg_info
-            if 'etaopts' in kwargs:
-                regs_etaopts = {'savg':[], 'tsavg':[], 'tsavgbnd':[], 'perc_10':[], 
-                                'perc_90':[], 'tavg_perc_10':[], 'tavg_perc_90':[]}
-                for T,eta in kwargs['etaopts'].items():
-                    if algo == 'DA':
-                        print('Simulating {0}, {1}, opt. constant rate eta_t={2:.3f}'.format(algo, pot.desc, eta))
-                    else:
-                        print('Simulating {0}, opt. constant rate eta_t={1:.3f}'.format(algo, eta))
-                    regrets = self.simulate(N, etas=eta*np.ones(self.T), algo=algo, Ngrid=Ngrid, **kwargs)[2]
-                    self.parse_regrets(regs_etaopts, regrets)
-                    result_args['regs_etaopts'] = regs_etaopts
             if 'etas' in kwargs:
-                regs_etas = {'savg':[], 'tsavg':[], 'tsavgbnd':[], 'perc_10':[], 
-                             'perc_90':[], 'tavg_perc_10':[], 'tavg_perc_90':[]}
-                for eta in kwargs['etas']:
-                    if algo == 'DA':
-                        print('Simulating {0}, {1}, constant rate eta={2:.3f}'.format(algo, kwargs['potential'].desc, eta))
-                    else:
-                        print('Simulating {0}, constant rate eta={1:.3f}'.format(algo, eta))
-                    regrets = self.simulate(N, etas=eta*np.ones(self.T), algo=algo, Ngrid=Ngrid, **kwargs)[2]
-                    self.parse_regrets(regs_etas, regrets)
-                    result_args['etas'] = kwargs['etas']
-                    result_args['regs_etas'] = regs_etas
-            if 'alphas' in kwargs:
-                regs_alphas = {'savg':[], 'tsavg':[], 'tsavgbnd':[], 'perc_10':[], 
-                               'perc_90':[], 'tavg_perc_10':[], 'tavg_perc_90':[]}
-                for alpha,theta in zip(kwargs['alphas'], kwargs['thetas']): # run for Nloss different sequences of loss functions
-                    if algo == 'DA':
-                        print('Simulating {0}, {1}, decaying rate with alpha={2:.3f}, theta={3}'.format(algo, kwargs['potential'].desc, alpha, theta))
-                    else:
-                        print('Simulating {0}, decaying rate with alpha={1:.3f}, theta={2}'.format(algo, alpha, theta))
-                    regrets = self.simulate(N, etas=theta*(1+np.arange(self.T))**(-alpha), algo=algo, Ngrid=Ngrid, **kwargs)[2]
-                    self.parse_regrets(regs_alphas, regrets)
-                    self.regret_bound(regs_alphas, algo, alpha=alpha, theta=theta, potential=kwargs['potential'])
-                    result_args['alphas'] = kwargs['alphas']
-                    result_args['thetas'] = kwargs['thetas']
-                    result_args['regs_alphas'] = regs_alphas
+                print('Simulating {0}, {1}, custom rate'.format(algo, pot.desc))
+                regrets = self.simulate(N, algo=algo, Ngrid=Ngrid, **kwargs)[2]
+                self.parse_regrets(reg_info, regrets) 
+#                 self.regret_bound(reg_info, algo, alpha=alpha, theta=theta, potential=pot)
+                result_args['regs_{}'.format(algo)] = reg_info
+#             if 'etaopts' in kwargs:
+#                 regs_etaopts = {'savg':[], 'tsavg':[], 'tsavgbnd':[], 'perc_10':[], 
+#                                 'perc_90':[], 'tavg_perc_10':[], 'tavg_perc_90':[]}
+#                 for T,eta in kwargs['etaopts'].items():
+#                     if algo == 'DA':
+#                         print('Simulating {0}, {1}, opt. constant rate eta_t={2:.3f}'.format(algo, pot.desc, eta))
+#                     else:
+#                         print('Simulating {0}, opt. constant rate eta_t={1:.3f}'.format(algo, eta))
+#                     regrets = self.simulate(N, etas=eta*np.ones(self.T), algo=algo, Ngrid=Ngrid, **kwargs)[2]
+#                     self.parse_regrets(regs_etaopts, regrets)
+#                     result_args['regs_etaopts'] = regs_etaopts
+#             if 'etas' in kwargs:
+#                 regs_etas = {'savg':[], 'tsavg':[], 'tsavgbnd':[], 'perc_10':[], 
+#                              'perc_90':[], 'tavg_perc_10':[], 'tavg_perc_90':[]}
+#                 for eta in kwargs['etas']:
+#                     if algo == 'DA':
+#                         print('Simulating {0}, {1}, constant rate eta={2:.3f}'.format(algo, kwargs['potential'].desc, eta))
+#                     else:
+#                         print('Simulating {0}, constant rate eta={1:.3f}'.format(algo, eta))
+#                     regrets = self.simulate(N, etas=eta*np.ones(self.T), algo=algo, Ngrid=Ngrid, **kwargs)[2]
+#                     self.parse_regrets(regs_etas, regrets)
+#                     result_args['etas'] = kwargs['etas']
+#                     result_args['regs_etas'] = regs_etas
+#             if 'alphas' in kwargs:
+#                 regs_alphas = {'savg':[], 'tsavg':[], 'tsavgbnd':[], 'perc_10':[], 
+#                                'perc_90':[], 'tavg_perc_10':[], 'tavg_perc_90':[]}
+#                 for alpha,theta in zip(kwargs['alphas'], kwargs['thetas']): # run for Nloss different sequences of loss functions
+#                     if algo == 'DA':
+#                         print('Simulating {0}, {1}, decaying rate with alpha={2:.3f}, theta={3}'.format(algo, kwargs['potential'].desc, alpha, theta))
+#                     else:
+#                         print('Simulating {0}, decaying rate with alpha={1:.3f}, theta={2}'.format(algo, alpha, theta))
+#                     regrets = self.simulate(N, etas=theta*(1+np.arange(self.T))**(-alpha), algo=algo, Ngrid=Ngrid, **kwargs)[2]
+#                     self.parse_regrets(regs_alphas, regrets)
+#                     self.regret_bound(regs_alphas, algo, alpha=alpha, theta=theta, potential=kwargs['potential'])
+#                     result_args['alphas'] = kwargs['alphas']
+#                     result_args['thetas'] = kwargs['thetas']
+#                     result_args['regs_alphas'] = regs_alphas
         else:
             regs_norate = {'savg':[], 'tsavg':[], 'tsavgbnd':[], 'perc_10':[], 
                            'perc_90':[], 'tavg_perc_10':[], 'tavg_perc_90':[]}
@@ -155,21 +161,24 @@ class ContNoRegretProblem(object):
             result_args['regs_{}'.format(algo)] = regs_norate
         # write the results to file (save memory) and return the file handler
         results = Results(self, label=label, algo=algo, **result_args)
-        os.makedirs('results', exist_ok=True)
-        with open('results/{}_n{}.piggl'.format(label, self.domain.n), 'wb') as f:
-            pickle.dump(results, f, pickle.HIGHEST_PROTOCOL)     
-        del results, regrets
-        return True
+        return results
+#         os.makedirs('results', exist_ok=True)
+#         with open('results/{}_n{}.piggl'.format(label, self.domain.n), 'wb') as f:
+#             pickle.dump(results, f, pickle.HIGHEST_PROTOCOL)     
+#         del results, regrets
+#         return True
 
  
-    def simulate(self, N, etas='opt', algo='DA', Ngrid=100000, **kwargs):
+    def simulate(self, N, algo='DA', Ngrid=200000, **kwargs):
         """ Simulates the result of running the No-Regret algorithm (N times).
             Returns a list of sequences of decisions and associated losses, one for each run. 
             The grid is used for computing both the regret and the actions! """
-        if etas == 'opt': # use optimal choice of etas
-            etas = compute_etaopt(self.domain, self.M, self.T)*np.ones(self.T)
-        if algo == 'DA':
-            pot = kwargs['potential']
+#         if etas == 'opt': # use optimal choice of etas
+#             etas = compute_etaopt(self.domain, self.M, self.T)*np.ones(self.T)
+        if algo in ['DA', 'GP', 'OGD']:
+            etas = kwargs.get('etas')
+            if algo == 'DA':
+                pot = kwargs['potential']
         if algo in ['ONS', 'FTAL', 'EWOO']:
             alpha = kwargs['alpha']
             beta = 0.5*np.minimum(1/4/self.L/self.domain.diameter, alpha)
@@ -185,32 +194,40 @@ class ContNoRegretProblem(object):
                 print('pid {}: Starting...'.format(kwargs['pid']))
             elif t % 25 == 0:
                 print('pid {}: t={}'.format(kwargs['pid'], t))
+            if algo == 'Greedy':
+                if t == 0:
+                    action = self.domain.sample_uniform(N)
+                else:
+                    action = np.array([cumLossFunc.argmin(),]*N)                
             if algo in ['GP', 'OGD']: # GP and OGD are the same except for the rates
                 if t == 0:
                     action = self.domain.sample_uniform(N) # pick arbitrary action in the first step, may as well sample
                 else:
-                    action = self.lossfuncs[t-1].proj_gradient(actions[-1], etas[t]) # do a projected gradient step
+                    action = self.lossfuncs[t-1].proj_gradient(actions[-1], etas[t]) # do the projected gradient step
             elif algo == 'DA': # Our very own Dual Averaging algorithm
                 if t == 0:
                     # compute nustar for warm-starting the intervals of root-finder
                     nustar = -1/etas[t]*pot.phi_inv(1/self.domain.volume)
                     action = self.domain.sample_uniform(N)
                     try:
-                        self.data.append([np.ones(pltpoints.shape[0])/self.domain.volume for pltpoints in self.pltpoints])
+                        self.data.append([np.ones(pltpoints.shape[0])/self.domain.volume 
+                                          for pltpoints in self.pltpoints])
                     except AttributeError: pass
                 else:
                     if (isinstance(cumLossFunc, AffineLossFunction) and isinstance(pot, ExponentialPotential) and
                         isinstance(self.domain, nBox)):
-                        action = quicksample(np.array(self.domain.bounds), np.repeat(np.array(cumLossFunc.a, ndmin=2), N, axis=0), etas[t])
+                        action = quicksample(np.array(self.domain.bounds), 
+                                             np.repeat(np.array(cumLossFunc.a, ndmin=2), N, axis=0), etas[t])
                     else:
                         nustar = compute_nustar(self.domain, pot, etas[t], cumLossFunc, self.M, nustar, 
                                                 etas[t-1], t, pid=kwargs['pid'], tmpfolder=kwargs['tmpfolder'])
                         weights = np.maximum(pot.phi(-etas[t]*(approxL + nustar)), 0)
-                        # let us plot the probability distribution
+                        np.random.seed()
                         action = gridpoints[np.random.choice(weights.shape[0], size=N, p=weights/np.sum(weights))]
                         del weights
                     try:
-                        self.data.append([np.maximum(pot.phi(-etas[t]*(cumLossFunc.val(pltpoints) + nustar)), 0) for pltpoints in self.pltpoints])
+                        self.data.append([np.maximum(pot.phi(-etas[t]*(cumLossFunc.val(pltpoints) + nustar)), 0) 
+                                          for pltpoints in self.pltpoints])
                     except AttributeError: pass
             elif algo == 'ONS': # Hazan's Online Newton Step
                 if t == 0: 
@@ -284,7 +301,7 @@ class ContNoRegretProblem(object):
         reg_results['tavg_perc_10'].append(reg_results['perc_10'][-1]/(1+np.arange(self.T)))
         reg_results['tavg_perc_90'].append(reg_results['perc_90'][-1]/(1+np.arange(self.T)))
         return reg_results
-    
+
     
     def regret_bound(self, reg_results, algo, **kwargs):
         """ Computes the regret bound for the ContNoRegret Problem. """
@@ -292,18 +309,22 @@ class ContNoRegretProblem(object):
         n, D, L = self.domain.n, self.domain.diameter, self.L
         if algo == 'DA':
             pot, v = kwargs['potential'], self.domain.v
-            alpha, theta = kwargs['alpha'], kwargs['theta']
-            if (isinstance(pot, ExponentialPotential) or isinstance(pot, pExpPotential)):
-                reg_bnd = self.M*np.sqrt(8*(pot.c_omega*(n-np.log(v)) + pot.d_omega*v))*np.sqrt(np.log(t+1)/t) + L*D/t
+            if 'etas' in kwargs:
+                etas = kwargs['etas']
+                raise NotImplementedError('Need to implement general bound in terms of etas')
             else:
-                lpsi, p_dualnorm = pot.l_psi()
-                C, epsilon = pot.bounds_asymp()
-                try:
-                    M = pot.M
-                except AttributeError:
-                    M = self.M
-                reg_bnd = (M**2*theta/lpsi/(1-alpha)*t**(-alpha)
-                           + (L*D + C/theta*v**(-epsilon))*t**(-(1-alpha)/(1+n*epsilon)))
+                if (isinstance(pot, ExponentialPotential) or isinstance(pot, pExpPotential)):
+                    reg_bnd = self.M*np.sqrt(8*(pot.c_omega*(n-np.log(v)) + pot.d_omega*v))*np.sqrt(np.log(t+1)/t) + L*D/t
+                else:
+                    alpha, theta = kwargs['alpha'], kwargs['theta']
+                    lpsi = pot.l_psi()[0]
+                    C, epsilon = pot.bounds_asymp()
+                    try:
+                        M = pot.M
+                    except AttributeError:
+                        M = self.M
+                    reg_bnd = (M**2*theta/lpsi/(1-alpha)*t**(-alpha)
+                               + (L*D + C/theta*v**(-epsilon))*t**(-(1-alpha)/(1+n*epsilon)))
         elif algo == 'GP':
             # for now assume eta_t = t**(-0.5)
             reg_bnd = (D**2/2 + L**2)*t**(-0.5) - L**2/2/t
@@ -318,16 +339,18 @@ class ContNoRegretProblem(object):
         else:
             raise NotImplementedError
         reg_results['tsavgbnd'].append(reg_bnd)
-        
-        
+
+    
 class Results(object):
     """ Class for 'result' objects that contain simulation results 
         generated by ContNoRegretProblems """
-    
+     
     def __init__(self, problem, **kwargs):
-        self.problem = problem
+        self.problem = problem #, self.regs = problem, regs
         self.label = kwargs.get('label')
         self.algo = kwargs.get('algo')
+        if 'etas' in kwargs:
+            self.etas = kwargs['etas']
         if self.algo == 'DA':
             try: self.regs_norate = kwargs['regs_DAopt']
             except: KeyError
@@ -341,13 +364,11 @@ class Results(object):
             self.regs_norate = kwargs['regs_{}'.format(self.algo)]
         Nslopes = np.minimum(1000, np.floor(self.problem.T/3))
         self.slopes, self.slopes_bnd = self.estimate_loglog_slopes(Nslopes)
-            
+             
     def estimate_loglog_slopes(self, N=500):
-        """ Estimates slope, intercept and r_value of the asymptotic log-log plot
+        """ Estimates slopes of the asymptotic log-log plot
         for each element f tsavg_regert, using the N last data points """
         slopes, slopes_bnd = {}, {}
-#         if N < self.problem.T:
-#             N = np.floor(self.problem.T/2)
         try:
             slopes['etaopts'] = self.loglog_slopes(self.regs_etaopts['tsavg'], N)
             slopes_bnd['etaopts'] = self.loglog_slopes(self.regs_etaopts['tsavgbnd'], N)
@@ -364,8 +385,8 @@ class Results(object):
             slopes['{}'.format(self.algo)] = self.loglog_slopes(self.regs_norate['tsavg'], N)
             slopes_bnd['{}'.format(self.algo)] = self.loglog_slopes(self.regs_norate['tsavgbnd'], N)
         except AttributeError: pass
-        return slopes, slopes_bnd
-        
+        return slopes, slopes_bnd       
+         
     def loglog_slopes(self, regrets, N): 
         slopes = []
         for regret in regrets:
@@ -374,9 +395,90 @@ class Results(object):
             slope = linregress(np.log(T), np.log(Y))[0]
             slopes.append(slope)
         return slopes
-                
-            
+
+
+# class Results(object):
+#     """ Class for 'result' objects that contain simulation results 
+#         generated by ContNoRegretProblems """
+#      
+#     def __init__(self, problem, regs, **kwargs):
+#         self.problem = problem
+#         self.regs = regs
+#         self.label = kwargs.get('label')
+#         self.algo = kwargs.get('algo')
+#         Nslopes = np.minimum(1000, np.floor(self.problem.T/3))
+#         self.slopes, self.slopes_bnd = self.estimate_loglog_slopes(Nslopes)
+#              
+#     def estimate_loglog_slopes(self, N=500):
+#         """ Estimates slopes of the asymptotic log-log plot
+#         for each element f tsavg_regert, using the N last data points """
+#         return self.loglog_slopes(self.regs['tsavg'], N), self.loglog_slopes(self.regs['tsavgbnd'], N)
+#          
+#     def loglog_slopes(self, regret, N): 
+#         T = np.arange(len(regret)-N, len(regret))
+#         Y = regret[len(regret)-N:]
+#         return linregress(np.log(T), np.log(Y))[0]    
+
+#     def parse_regrets(self, regrets):
+#         reg_results = {}
+#         reg_results['savg'] = np.average(regrets, axis=0)
+#         reg_results['perc_10'] = np.percentile(regrets, 10, axis=0)
+#         reg_results['perc_90'] = np.percentile(regrets, 90, axis=0)
+#         reg_results['tsavg'] = reg_results['savg'][-1]/(1+np.arange(self.T))
+#         reg_results['tavg_perc_10'] = reg_results['perc_10'][-1]/(1+np.arange(self.T))
+#         reg_results['tavg_perc_90'] = reg_results['perc_90'][-1]/(1+np.arange(self.T))
+#         return reg_results          
     
+#     def run_simulation(self, N, algo, Ngrid=100000, label='nolabel', **kwargs):
+#         """ Runs the no-regret algorithm for different parameters and returns the
+#             results as a 'Result' object. Accepts optimal constant rates in the 
+#             dictionary 'etaopts', constant rates in the array-like 'etas', and 
+#             time-varying rates with parameters in the array-like 'alphas', 'thetas' """
+# #         regs = {'savg':None, 'tsavg':None, 'tsavgbnd':None, 'perc_10':None, 
+# #                        'perc_90':None, 'tavg_perc_10':None, 'tavg_perc_90':None}
+#         if algo == 'GP':
+#             print('Simulating GP, rate eta_t=t^(-0.5)')
+#             regrets = self.simulate(N, etas=(1+np.arange(self.T))**(-0.5), algo=algo, Ngrid=Ngrid, **kwargs)[2]
+#             regs = self.parse_regrets(regrets)
+#             self.regret_bound(regs, algo, alpha=0.5)
+#         elif algo == 'OGD':
+#             theta = 1/kwargs['H']
+#             print('Simulating OGD, rate eta_t={0:.2f}t^(-1)'.format(theta))
+#             regrets = self.simulate(N, etas=theta/(1+np.arange(self.T)), algo=algo, Ngrid=Ngrid, **kwargs)[2]
+#             regs = self.parse_regrets(regrets)
+#             self.regret_bound(regs, algo, H=kwargs['H'])
+#         elif algo == 'DA':
+#             pot = kwargs['potential']
+#             if  kwargs.get('opt_rate') == True:
+#                 if (isinstance(pot, ExponentialPotential) or isinstance(pot, pExpPotential)):
+#                     theta = np.sqrt((pot.c_omega*(self.domain.n-np.log(self.domain.v)) 
+#                                      + pot.d_omega*self.domain.v)/2/self.M**2)
+#                     alpha = None
+#                     print('Simulating {0}, {1}, opt. rate '.format(algo, pot.desc) + 
+#                           'eta_t={0:.3f} sqrt(log t/t)'.format(theta))
+#                     etas = theta*np.sqrt(np.log(1+np.arange(self.T)+1)/(1+np.arange(self.T)))
+#                 else:
+#                     try:
+#                         M = pot.M
+#                     except AttributeError:
+#                         M = self.M
+#                     alpha, theta = pot.alpha_opt(self.domain.n), pot.theta_opt(self.domain, M)
+#                     print('Simulating {0}, {1}, opt. rate '.format(algo, pot.desc) + 
+#                           'eta_t={0:.3f}t^(-{1:.3f})$'.format(theta, alpha))
+#                     etas = theta*(1+np.arange(self.T))**(-alpha)
+#             if 'etas' in kwargs:
+#                 etas = kwargs['etas']
+#                 print('Simulating {0}, {1}, custom rate'.format(algo, pot.desc))                
+#             regrets = self.simulate(N, etas=etas, algo=algo, Ngrid=Ngrid, **kwargs)[2]
+#             regs = self.parse_regrets(regrets) 
+#             self.regret_bound(regs, algo, alpha=alpha, theta=theta, potential=pot)
+#         else:
+#             print('Simulating {0}, exp-concavity parameter alpha={1:.3f}'.format(algo, kwargs['alpha']))
+#             regrets = self.simulate(N, algo=algo, Ngrid=Ngrid, **kwargs)[2]
+#             regs = self.parse_regrets(regrets)
+#             self.regret_bound(regs, algo, **kwargs)
+#         # write the results to file (save memory) and return the file handler
+#         return Results(self, regs, algo=algo, label=label, **kwargs)
     
 def action_EWOO(cumLossFunc, alpha, ranges, tmpfolder='libs/'):
     """ Function for computing the (single) action of the EWOO algorithm """

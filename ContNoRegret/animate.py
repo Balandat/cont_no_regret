@@ -35,7 +35,7 @@ def save_animations(results, length=10, directory=None, show=False, **kwargs):
             
             # create initial object
             for points,dat in zip(pltpoints, data[0]):      
-                plot = ax.plot_trisurf(points[:,0], points[:,1], dat, cmap=cm.jet, vmin=zmin, vmax=zmax)
+                plot = ax.plot_trisurf(points[:,0], points[:,1], dat, cmap=plt.get_cmap('jet'), vmin=zmin, vmax=zmax)
             # Setting the axes properties
             ax.set_xlim3d(bbox.bounds[0])
             ax.set_xlabel('$s_1$')
@@ -48,7 +48,7 @@ def save_animations(results, length=10, directory=None, show=False, **kwargs):
             def update_plot(framenum, data, plot):
                 ax.clear()
                 for points,dat in zip(pltpoints, data[framenum]):
-                    plot = ax.plot_trisurf(points[:,0], points[:,1], dat, linewidth=0, cmap=cm.jet, vmin=zmin, vmax=zmax)
+                    plot = ax.plot_trisurf(points[:,0], points[:,1], dat, linewidth=0, cmap=plt.get_cmap('jet'), vmin=zmin, vmax=zmax)
                 ax.set_xlim3d(bbox.bounds[0])
                 ax.set_xlabel('$s_1$')
                 ax.set_ylim3d(bbox.bounds[1])

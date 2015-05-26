@@ -2,39 +2,36 @@
 Collection of utility functions to analyze Continuous No-Regret algorithms
 
 @author: Maximilian Balandat
-@date May 6, 2015
+@date May 25, 2015
 '''
 
 import numpy as np
 import pickle, os
 from matplotlib import pyplot as plt
-import matplotlib.colors as colors
-import matplotlib.cm as cm
-from scipy.stats import linregress 
 from .Domains import nBox, DifferenceOfnBoxes
 
 
-def compute_etaopt(dom, M, T):
-    """ Computes the optimal learning rate for known time horizon T"""
-    return np.sqrt(8*(dom.n*np.log(T) - np.log(dom.v))/T)/M
+# def compute_etaopt(dom, M, T):
+#     """ Computes the optimal learning rate for known time horizon T"""
+#     return np.sqrt(8*(dom.n*np.log(T) - np.log(dom.v))/T)/M
+# 
+#     
+# def regret_bound_const(dom, eta, T, L, M):
+#     """ Computes the bound for the time-average regret for constant learning rates """
+#     diameter = dom.compute_parameters()[0]
+#     return M**2*eta/8 + L*diameter/T + (dom.n*np.log(T) - np.log(dom.v))/eta/T
 
     
-def regret_bound_const(dom, eta, T, L, M):
-    """ Computes the bound for the time-average regret for constant learning rates """
-    diameter = dom.compute_parameters()[0]
-    return M**2*eta/8 + L*diameter/T + (dom.n*np.log(T) - np.log(dom.v))/eta/T
-
-    
-def estimate_loglog_slopes(tsavg_regret, N):
-    """ Estimates slope, intercept and r_value of the asymptotic log-log plot
-        for each element f tsavg_regert, using the N last data points """
-    slopes, intercepts, r_values = [], [], []
-    for regret in tsavg_regret:
-        T = np.arange(len(regret)-N, len(regret))
-        Y = regret[len(regret)-N:]
-        slope, intercept, r_value, p_value, std_err = linregress(np.log(T), np.log(Y))
-        slopes.append(slope), intercepts.append(intercept), r_values.append(r_value)
-    return np.array(slopes), np.array(intercepts), np.array(r_values)
+# def estimate_loglog_slopes(tsavg_regret, N):
+#     """ Estimates slope, intercept and r_value of the asymptotic log-log plot
+#         for each element f tsavg_regert, using the N last data points """
+#     slopes, intercepts, r_values = [], [], []
+#     for regret in tsavg_regret:
+#         T = np.arange(len(regret)-N, len(regret))
+#         Y = regret[len(regret)-N:]
+#         slope, intercept, r_value, p_value, std_err = linregress(np.log(T), np.log(Y))
+#         slopes.append(slope), intercepts.append(intercept), r_values.append(r_value)
+#     return np.array(slopes), np.array(intercepts), np.array(r_values)
   
 
 def plot_results(results, offset=500, directory=None, show=True):
@@ -201,9 +198,9 @@ def plot_dims(results, directory=None, show=True):
         # and now plot, depending on what data is there
         for loss_results in results:
             for result in loss_results:
-                lltsavg = plt.plot(np.arange(1,result.problem.T+1), result.regs_norate['tsavg'][0], linewidth=2.0, 
+                lltsavg = plt.plot(np.arange(1,result.problem.T+1), result.regs_norate['tsavg'], linewidth=2.0, 
                                    linestyle=dim_styles[result.dim], label=result.label, rasterized=True)
-                plt.fill_between(np.arange(1,result.problem.T+1), result.regs_norate['tavg_perc_10'][0], result.regs_norate['tavg_perc_90'][0], 
+                plt.fill_between(np.arange(1,result.problem.T+1), result.regs_norate['tavg_perc_10'], result.regs_norate['tavg_perc_90'], 
                                  linestyle=dim_styles[result.dim], color=lltsavg[0].get_color(), alpha=0.1, rasterized=True)         
         # make plots pretty and show legend
         plt.yscale('log'), plt.xscale('log')
@@ -214,6 +211,32 @@ def plot_dims(results, directory=None, show=True):
             plt.savefig(filename + 'loglogtavgloss.pdf', bbox_inches='tight', dpi=300)
         if show:
             plt.show()
+            
+            
+# def plot_dims(results, directory=None, show=True):
+#         """ Plots and shows or saves (or both) the simulation results """
+#         # set up figures
+# #         ylimits = [np.Infinity, -np.Infinity]
+#         f = plt.figure()
+#         plt.title(r'log time-avg. cumulative regret, {} losses'.format(results[0].problem.lossfuncs[0].desc))
+#         plt.xlabel('t')   
+#         dim_styles = {2:'--', 3:'-.', 4:':'}
+#         # and now plot, depending on what data is there
+#         for loss_results in results:
+#             for result in loss_results:
+#                 lltsavg = plt.plot(np.arange(1,result.problem.T+1), result.regs_norate['tsavg'][0], linewidth=2.0, 
+#                                    linestyle=dim_styles[result.dim], label=result.label, rasterized=True)
+#                 plt.fill_between(np.arange(1,result.problem.T+1), result.regs_norate['tavg_perc_10'][0], result.regs_norate['tavg_perc_90'][0], 
+#                                  linestyle=dim_styles[result.dim], color=lltsavg[0].get_color(), alpha=0.1, rasterized=True)         
+#         # make plots pretty and show legend
+#         plt.yscale('log'), plt.xscale('log')
+#         plt.legend(loc='upper right', prop={'size':13}, frameon=False) 
+#         if directory:
+#             os.makedirs(directory+'figures/', exist_ok=True) # this could probably use a safer implementation  
+#             filename = '{}{}_{}_'.format(directory+'figures/', results[0].problem.desc, results[0].problem.lossfuncs[0].desc)
+#             plt.savefig(filename + 'loglogtavgloss.pdf', bbox_inches='tight', dpi=300)
+#         if show:
+#             plt.show()
 
 
 def plot_u0s(results, directory=None, show=True, bounds=False):
@@ -222,21 +245,18 @@ def plot_u0s(results, directory=None, show=True, bounds=False):
         f = plt.figure()
         plt.title(r'log time-avg. cumulative regret, {} losses'.format(results[0][0].problem.lossfuncs[0].desc))
         plt.xlabel('t')
-        colors = ['b', 'r', 'g', 'k', 'c' ]
-        loss_styles = ['-', '--', '-.', ':']
-#         scalarMap = cm.ScalarMappable(norm=colors.Normalize(vmin=0, vmax=len(results[0])), cmap=plt.get_cmap('hsv'))
+        colors = ['k', 'r', 'g', 'b', 'c', 'm', 'y']*3
+        loss_styles = ['-', '--', '-.', ':']*3
         # and now plot, depending on what data is there
         for i,loss_results in enumerate(results):
             for j,result in enumerate(loss_results):
-                lltsavg = plt.plot(np.arange(1,result.problem.T+1), result.regs_norate['tsavg'][0], linewidth=2.0, 
+                lltsavg = plt.plot(np.arange(1,result.problem.T+1), result.regs['tsavg'], linewidth=2.0, 
                                    linestyle=loss_styles[i], color=colors[j], label=result.label, rasterized=True)
-#                 plt.fill_between(np.arange(1,result.problem.T+1), result.regs_norate['tavg_perc_10'][0], result.regs_norate['tavg_perc_90'][0], 
-#                                  linestyle=loss_styles[i], #color=lltsavg[0].get_color(), 
-#                                  alpha=0.1, rasterized=True)
+                plt.fill_between(np.arange(1,result.problem.T+1), result.regs['tavg_perc_10'], result.regs['tavg_perc_90'], 
+                                 linestyle=loss_styles[i], alpha=0.1, rasterized=True)
                 if bounds:
-                    plt.plot(np.arange(1,result.problem.T+1), result.regs_norate['tsavgbnd'][0], 
-                                 #color=lltsavg[0].get_color(), 
-                                 color=colors[j], linewidth=3, rasterized=True)      
+                    plt.plot(np.arange(1,result.problem.T+1), result.regs['tsavgbnd'], 
+                             color=colors[j], linewidth=3, rasterized=True)      
         # make plots pretty and show legend
         plt.yscale('log'), plt.xscale('log')
         plt.legend(loc='lower left', prop={'size':10}, frameon=False) 
@@ -246,7 +266,67 @@ def plot_u0s(results, directory=None, show=True, bounds=False):
             plt.savefig(filename + 'loglogtavgloss.pdf', bbox_inches='tight', dpi=300)
         if show:
             plt.show()
- 
+            
+# def plot_u0s(results, directory=None, show=True, bounds=False):
+#         """ Plots and shows or saves (or both) the simulation results """
+#         # set up figures
+#         f = plt.figure()
+#         plt.title(r'log time-avg. cumulative regret, {} losses'.format(results[0][0].problem.lossfuncs[0].desc))
+#         plt.xlabel('t')
+#         colors = ['k', 'r', 'g', 'b', 'c', 'm', 'y']*3
+#         loss_styles = ['-', '--', '-.', ':']*3
+# #         scalarMap = cm.ScalarMappable(norm=colors.Normalize(vmin=0, vmax=len(results[0])), cmap=plt.get_cmap('hsv'))
+#         # and now plot, depending on what data is there
+#         for i,loss_results in enumerate(results):
+#             for j,result in enumerate(loss_results):
+#                 lltsavg = plt.plot(np.arange(1,result.problem.T+1), result.regs_norate['tsavg'][0], linewidth=2.0, 
+#                                    linestyle=loss_styles[i], color=colors[j], label=result.label, rasterized=True)
+# #                 plt.fill_between(np.arange(1,result.problem.T+1), result.regs_norate['tavg_perc_10'][0], result.regs_norate['tavg_perc_90'][0], 
+# #                                  linestyle=loss_styles[i], #color=lltsavg[0].get_color(), 
+# #                                  alpha=0.1, rasterized=True)
+#                 if bounds:
+#                     plt.plot(np.arange(1,result.problem.T+1), result.regs_norate['tsavgbnd'][0], 
+#                                  #color=lltsavg[0].get_color(), 
+#                                  color=colors[j], linewidth=3, rasterized=True)      
+#         # make plots pretty and show legend
+#         plt.yscale('log'), plt.xscale('log')
+#         plt.legend(loc='lower left', prop={'size':10}, frameon=False) 
+#         if directory:
+#             os.makedirs(directory+'figures/', exist_ok=True) # this could probably use a safer implementation  
+#             filename = '{}{}_{}_'.format(directory+'figures/', results[0][0].problem.desc, results[0][0].problem.lossfuncs[0].desc)
+#             plt.savefig(filename + 'loglogtavgloss.pdf', bbox_inches='tight', dpi=300)
+#         if show:
+#             plt.show()
+
+def plot_loglogs(results, directory=None, show=True, bounds=False):
+        """ Plots and shows or saves (or both) the simulation results """
+        # set up figures
+        f = plt.figure()
+        lossname = list(results[0].values())[0].problem.lossfuncs[0].desc
+        plt.title(r'log time-avg. cumulative regret, {} losses'.format(lossname))
+        plt.xlabel('t')
+        colors = ['k', 'r', 'g', 'b', 'c', 'm', 'y']*3
+        loss_styles = ['-', '--', '-.', ':']*3
+        # and now plot, depending on what data is there
+        for i, result_dict in enumerate(results):
+            for j,result in enumerate(result_dict.values()):
+                lltsavg = plt.plot(np.arange(1,result.problem.T+1), result.regs['tsavg'], linewidth=2.0, 
+                                   linestyle=loss_styles[i], color=colors[j], label=result.label, rasterized=True)
+#                 plt.fill_between(np.arange(1,result.problem.T+1), result.regs['tavg_perc_10'], result.regs['tavg_perc_90'], 
+#                                  linestyle=loss_styles[i], alpha=0.1, rasterized=True)
+                if bounds:
+                    plt.plot(np.arange(1,result.problem.T+1), result.regs['tsavgbnd'], 
+                             color=colors[j], linewidth=3, rasterized=True)      
+        # make plots pretty and show legend
+        plt.yscale('log'), plt.xscale('log')
+        plt.legend(loc='lower left', prop={'size':10}, frameon=False) 
+        if directory:
+            os.makedirs(directory+'figures/', exist_ok=True) # this could probably use a safer implementation  
+            filename = '{}{}_{}_'.format(directory+'figures/', results[0][0].problem.desc, results[0][0].problem.lossfuncs[0].desc)
+            plt.savefig(filename + 'loglogtavgloss.pdf', bbox_inches='tight', dpi=300)
+        if show:
+            plt.show()
+            
 
 def save_results(results, directory):
     """ Serializes a results object for persistent storage using the pickle module. """ 
@@ -300,6 +380,7 @@ def quicksample(bounds, A, eta):
         update on an Box with Affine losses, Exponential Potential. """
     C1, C2 = np.exp(-eta*A*bounds[:,0]), np.exp(-eta*A*bounds[:,1])
     Finv = lambda U: -np.log(C1 - (C1-C2)*U)/A/eta
+    np.random.seed()
     return Finv(np.random.rand(*A.shape))
 
 def CNR_worker(prob, *args, **kwargs):

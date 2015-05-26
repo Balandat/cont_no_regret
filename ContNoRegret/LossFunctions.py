@@ -720,7 +720,7 @@ def isPosDef(Q):
     except np.linalg.LinAlgError:
         return False 
 
-def random_PolynomialLosses(dom, T, M, L, m_max, exponents, dist=uniform()):
+def random_PolynomialLosses(dom, T, M, L, m_max, exponents, dist=uniform(), high_ratio=False):
     """ Creates T random L-Lipschitz PolynomialLossFunctions uniformly bounded
         (in dual norm) by M, with Lipschitz constant uniformly bounded by L.
         Here exponents is a (finite) set of possible exponents.
@@ -728,8 +728,16 @@ def random_PolynomialLosses(dom, T, M, L, m_max, exponents, dist=uniform()):
     """
     lossfuncs = []
     while len(lossfuncs) < T:
-        expon = [tuple(np.random.choice(exponents, size=dom.n)) for i in range(np.random.choice(np.arange(2,m_max)))]
-        coeffs = dist.rvs(len(expon))
+        if high_ratio:
+            weights = np.ones(len(exponents))
+        else:
+            weights = np.linspace(1, 10, len(exponents))
+        expon = [tuple(np.random.choice(exponents, size=dom.n, p=weights/np.sum(weights))) 
+                 for i in range(np.random.choice(np.arange(2,m_max)))]
+        if high_ratio:
+            coeffs = np.array([uniform(scale=np.max(expo)).rvs(1) for expo in expon]).flatten()
+        else:
+            coeffs = dist.rvs(len(expon))
         lossfunc = PolynomialLossFunction(dom, coeffs, expon)
         Ml, Ll = lossfunc.max(grad=True)
         ml = lossfunc.min()

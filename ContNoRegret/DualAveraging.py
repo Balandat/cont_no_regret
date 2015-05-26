@@ -2,7 +2,7 @@
 Core functionality for the dual averaging no-regret work
 
 @author: Maximilian Balandat
-@date: May 19, 2015
+@date: May 25, 2015
 '''
 
 import numpy as np
@@ -12,7 +12,7 @@ from subprocess import call
 from scipy.optimize import brentq
 from scipy.integrate import nquad
 from .Domains import nBox, UnionOfDisjointnBoxes, DifferenceOfnBoxes
-from .Potentials import ExponentialPotential, pNormPotential, IdentityPotential
+from .Potentials import ExponentialPotential, IdentityPotential
 
 
 def compute_nustar(dom, potential, eta, Loss, M, nu_prev, eta_prev, t, 
@@ -43,10 +43,10 @@ def compute_nustar(dom, potential, eta, Loss, M, nu_prev, eta_prev, t,
                 integral = np.sum([nquad(lib.f, rng, [0])[0] for rng in ranges])
                 nustar = np.log(integral)/eta
             else:
-                #if isinstance(potential, IdentityPotential):
-                #    grid = dom.grid(500000)
-                #    f = lambda nu: np.sum(potential.phi(-eta*(Loss.val(grid)+nu)))/len(grid)
-                #else:
+#                 if isinstance(potential, IdentityPotential):
+#                     grid = dom.grid(500000)
+#                     f = lambda nu: np.sum(potential.phi(-eta*(Loss.val(grid)+nu)))/len(grid)
+#                 else:
                 f = lambda nu: np.sum([nquad(lib.f, rng, args=[nu], 
                                              opts=[{'epsabs':1.49e-4, 'epsrel':1.49e-3}]*dom.n)[0] 
                                        for rng in ranges]) - 1

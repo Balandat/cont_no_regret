@@ -96,6 +96,7 @@ class nBox(Domain):
         
     def sample_uniform(self, N):
         """ Draws N samples uniformly from the nBox """
+        np.random.seed()
         return np.concatenate([np.random.uniform(low=self.bounds[i][0], high=self.bounds[i][1], 
                                                  size=(N,1)) for i in range(self.n)], axis=1)
     
@@ -181,6 +182,7 @@ class UnionOfDisjointnBoxes(Domain):
         """ Draws N samples uniformly from the union of disjoint nBoxes """
         volumes = [nbox.volume for nbox in self.nboxes]
         weights = volumes/np.sum(volumes)
+        np.random.seed()
         select = np.random.choice(np.arange(len(volumes)), p=weights, size=N)
         samples = np.array([nbox.sample_uniform(N) for nbox in self.nboxes])
         return samples[select, np.arange(N)]
@@ -324,6 +326,7 @@ class UnitSimplex(Domain):
     def sample_uniform(self, N):
         """ Draws N samples uniformly from the k-unit simplex. This is just
             sampling from a Dirichlet distribution with all parameters equal to 1. """
+        np.random.seed()
         return np.random.dirichlet([1]*self.k, N)
     
 
