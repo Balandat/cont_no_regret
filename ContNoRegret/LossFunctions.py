@@ -135,7 +135,7 @@ class AffineLossFunction(LossFunction):
             vals = self.val(verts)
             idx = np.argmin(vals)
             if argmin:
-                return verts[idx], vals[idx]
+                return vals[idx], verts[idx]
             else:
                 return vals[idx]
             return np.min(self.val(self.domain.vertices()))

@@ -239,7 +239,7 @@ def plot_dims(results, directory=None, show=True):
 #             plt.show()
 
 
-def plot_loglogs(results, directory=None, show=True, bounds=True):
+def plot_loglogs(results, directory=None, show=True, bounds=True, **kwargs):
         """ Plots and shows or saves (or both) the simulation results """
         # set up figures
         f = plt.figure()
@@ -257,14 +257,17 @@ def plot_loglogs(results, directory=None, show=True, bounds=True):
                 plt.fill_between(np.arange(1,r.problem.T+1), r.regs_norate['tavg_perc_10'][0], r.regs_norate['tavg_perc_90'][0], 
                                  linestyle=loss_styles[i], color=colors[j], alpha=0.1, rasterized=True)
                 if bounds:
-                    plt.plot(np.arange(1,r.problem.T+1), r.regs_norate['tsavgbnd'][0], 
-                             color=colors[j], linewidth=3, rasterized=True)      
+                    try:
+                        plt.plot(np.arange(1,r.problem.T+1), r.regs_norate['tsavgbnd'][0], 
+                                 color=colors[j], linewidth=3, rasterized=True)     
+                    except IndexError: pass 
         # make plots pretty and show legend
         plt.yscale('log'), plt.xscale('log')
-        plt.legend(loc='lower left', prop={'size':10}, frameon=False) 
+        plt.legend(prop={'size':12}, frameon=False, **kwargs)  #loc='lower center', 
         if directory:
-            os.makedirs(directory+'figures/', exist_ok=True) # this could probably use a safer implementation  
-            filename = '{}{}_{}_'.format(directory+'figures/', results[0][0].problem.desc, results[0][0].problem.lossfuncs[0].desc)
+            os.makedirs(directory, exist_ok=True) # this could probably use a safer implementation  
+            filename = '{}{}_{}_'.format(directory, list(results[0].values())[0].problem.desc, 
+                                         list(results[0].values())[0].problem.lossfuncs[0].desc)
             plt.savefig(filename + 'loglogtavgloss.pdf', bbox_inches='tight', dpi=300)
         if show:
             plt.show()
