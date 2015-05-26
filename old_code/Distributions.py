@@ -39,7 +39,7 @@ class Distribution(object):
         vals = self.density(pltpoints)
         fig = plt.figure()
         ax = fig.gca(projection='3d')
-        ax.plot_trisurf(pltpoints[:,0], pltpoints[:,1], vals, cmap=cm.jet, linewidth=0.2)
+        ax.plot_trisurf(pltpoints[:,0], pltpoints[:,1], vals, cmap=plt.get_cmap('jet'), linewidth=0.2)
         ax.set_xlabel('$x$'), ax.set_ylabel('$y$'), ax.set_zlabel('pdf$(x,y)$')
         ax.set_title('Density')
         plt.show()
