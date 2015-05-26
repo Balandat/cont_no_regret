@@ -239,23 +239,25 @@ def plot_dims(results, directory=None, show=True):
 #             plt.show()
 
 
-def plot_u0s(results, directory=None, show=True, bounds=False):
+def plot_loglogs(results, directory=None, show=True, bounds=True):
         """ Plots and shows or saves (or both) the simulation results """
         # set up figures
         f = plt.figure()
-        plt.title(r'log time-avg. cumulative regret, {} losses'.format(results[0][0].problem.lossfuncs[0].desc))
+        loss_title = list(results[0].values())[0].problem.lossfuncs[0].desc
+        plt.title(r'log time-avg. cumulative regret, {} losses'.format(loss_title))
         plt.xlabel('t')
         colors = ['k', 'r', 'g', 'b', 'c', 'm', 'y']*3
         loss_styles = ['-', '--', '-.', ':']*3
         # and now plot, depending on what data is there
         for i,loss_results in enumerate(results):
-            for j,result in enumerate(loss_results):
-                lltsavg = plt.plot(np.arange(1,result.problem.T+1), result.regs['tsavg'], linewidth=2.0, 
-                                   linestyle=loss_styles[i], color=colors[j], label=result.label, rasterized=True)
-                plt.fill_between(np.arange(1,result.problem.T+1), result.regs['tavg_perc_10'], result.regs['tavg_perc_90'], 
-                                 linestyle=loss_styles[i], alpha=0.1, rasterized=True)
+            for j,key in enumerate(loss_results.keys()):
+                r = loss_results[key]
+                lltsavg = plt.plot(np.arange(1,r.problem.T+1), r.regs_norate['tsavg'][0], linewidth=2.0, 
+                                   linestyle=loss_styles[i], color=colors[j], label=r.label, rasterized=True)
+                plt.fill_between(np.arange(1,r.problem.T+1), r.regs_norate['tavg_perc_10'][0], r.regs_norate['tavg_perc_90'][0], 
+                                 linestyle=loss_styles[i], color=colors[j], alpha=0.1, rasterized=True)
                 if bounds:
-                    plt.plot(np.arange(1,result.problem.T+1), result.regs['tsavgbnd'], 
+                    plt.plot(np.arange(1,r.problem.T+1), r.regs_norate['tsavgbnd'][0], 
                              color=colors[j], linewidth=3, rasterized=True)      
         # make plots pretty and show legend
         plt.yscale('log'), plt.xscale('log')
@@ -298,34 +300,34 @@ def plot_u0s(results, directory=None, show=True, bounds=False):
 #         if show:
 #             plt.show()
 
-def plot_loglogs(results, directory=None, show=True, bounds=False):
-        """ Plots and shows or saves (or both) the simulation results """
-        # set up figures
-        f = plt.figure()
-        lossname = list(results[0].values())[0].problem.lossfuncs[0].desc
-        plt.title(r'log time-avg. cumulative regret, {} losses'.format(lossname))
-        plt.xlabel('t')
-        colors = ['k', 'r', 'g', 'b', 'c', 'm', 'y']*3
-        loss_styles = ['-', '--', '-.', ':']*3
-        # and now plot, depending on what data is there
-        for i, result_dict in enumerate(results):
-            for j,result in enumerate(result_dict.values()):
-                lltsavg = plt.plot(np.arange(1,result.problem.T+1), result.regs['tsavg'], linewidth=2.0, 
-                                   linestyle=loss_styles[i], color=colors[j], label=result.label, rasterized=True)
-#                 plt.fill_between(np.arange(1,result.problem.T+1), result.regs['tavg_perc_10'], result.regs['tavg_perc_90'], 
-#                                  linestyle=loss_styles[i], alpha=0.1, rasterized=True)
-                if bounds:
-                    plt.plot(np.arange(1,result.problem.T+1), result.regs['tsavgbnd'], 
-                             color=colors[j], linewidth=3, rasterized=True)      
-        # make plots pretty and show legend
-        plt.yscale('log'), plt.xscale('log')
-        plt.legend(loc='lower left', prop={'size':10}, frameon=False) 
-        if directory:
-            os.makedirs(directory+'figures/', exist_ok=True) # this could probably use a safer implementation  
-            filename = '{}{}_{}_'.format(directory+'figures/', results[0][0].problem.desc, results[0][0].problem.lossfuncs[0].desc)
-            plt.savefig(filename + 'loglogtavgloss.pdf', bbox_inches='tight', dpi=300)
-        if show:
-            plt.show()
+# def plot_loglogs(results, directory=None, show=True, bounds=False):
+#         """ Plots and shows or saves (or both) the simulation results """
+#         # set up figures
+#         f = plt.figure()
+#         lossname = list(results[0].values())[0].problem.lossfuncs[0].desc
+#         plt.title(r'log time-avg. cumulative regret, {} losses'.format(lossname))
+#         plt.xlabel('t')
+#         colors = ['k', 'r', 'g', 'b', 'c', 'm', 'y']*3
+#         loss_styles = ['-', '--', '-.', ':']*3
+#         # and now plot, depending on what data is there
+#         for i, result_dict in enumerate(results):
+#             for j,result in enumerate(result_dict.values()):
+#                 lltsavg = plt.plot(np.arange(1,result.problem.T+1), result.regs['tsavg'], linewidth=2.0, 
+#                                    linestyle=loss_styles[i], color=colors[j], label=result.label, rasterized=True)
+# #                 plt.fill_between(np.arange(1,result.problem.T+1), result.regs['tavg_perc_10'], result.regs['tavg_perc_90'], 
+# #                                  linestyle=loss_styles[i], alpha=0.1, rasterized=True)
+#                 if bounds:
+#                     plt.plot(np.arange(1,result.problem.T+1), result.regs['tsavgbnd'], 
+#                              color=colors[j], linewidth=3, rasterized=True)      
+#         # make plots pretty and show legend
+#         plt.yscale('log'), plt.xscale('log')
+#         plt.legend(loc='lower left', prop={'size':10}, frameon=False) 
+#         if directory:
+#             os.makedirs(directory+'figures/', exist_ok=True) # this could probably use a safer implementation  
+#             filename = '{}{}_{}_'.format(directory+'figures/', results[0][0].problem.desc, results[0][0].problem.lossfuncs[0].desc)
+#             plt.savefig(filename + 'loglogtavgloss.pdf', bbox_inches='tight', dpi=300)
+#         if show:
+#             plt.show()
             
 
 def save_results(results, directory):
@@ -334,10 +336,10 @@ def save_results(results, directory):
     slope_txt = []
     for result in results:
         try:
-            [slope_txt.append('{}, Empirical: {}\n'.format(result.label, val[0])) for val in result.slopes.values()] 
+            [slope_txt.append('{}, Empirical: {}\n'.format(result.label, val[0])) for val in result.slopes.values()]
             [slope_txt.append('{}, Bounds: {}\n'.format(result.label, val[0])) for val in result.slopes_bnd.values()] 
             del result.problem.pltpoints, result.problem.data
-        except AttributeError:
+        except (AttributeError, IndexError):
             pass
     slopes_name = '{}{}_{}_slopes.txt'.format(directory, results[0].problem.desc, 
                                        results[0].problem.lossfuncs[0].desc)
