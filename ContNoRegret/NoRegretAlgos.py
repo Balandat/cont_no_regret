@@ -66,7 +66,14 @@ class ContNoRegretProblem(object):
             dictionary 'etaopts', constant rates in the array-like 'etas', and 
             time-varying rates with parameters in the array-like 'alphas', 'thetas' """
         result_args = {}
-        if algo == 'GP':
+        if algo == 'Greedy':
+            regs_Greedy = {'savg':[], 'tsavg':[], 'tsavgbnd':[], 'perc_10':[], 
+                           'perc_90':[], 'tavg_perc_10':[], 'tavg_perc_90':[]}
+            print('Simulating Greedy')
+            regrets = self.simulate(N, algo=algo, Ngrid=Ngrid, **kwargs)[2]
+            self.parse_regrets(regs_Greedy, regrets)
+            result_args['regs_{}'.format(algo)] = regs_Greedy
+        elif algo == 'GP':
             regs_GP = {'savg':[], 'tsavg':[], 'tsavgbnd':[], 'perc_10':[], 
                        'perc_90':[], 'tavg_perc_10':[], 'tavg_perc_90':[]}
             print('Simulating GP, rate eta_t=t^(-0.5)')
@@ -198,7 +205,7 @@ class ContNoRegretProblem(object):
                 if t == 0:
                     action = self.domain.sample_uniform(N)
                 else:
-                    action = np.array([cumLossFunc.argmin(),]*N)                
+                    action = np.array([cumLossFunc.min(argmin=True)[1],]*N)                
             if algo in ['GP', 'OGD']: # GP and OGD are the same except for the rates
                 if t == 0:
                     action = self.domain.sample_uniform(N) # pick arbitrary action in the first step, may as well sample
