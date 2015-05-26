@@ -126,11 +126,18 @@ class AffineLossFunction(LossFunction):
         else:
             return M
     
-    def min(self):
+    def min(self, argmin=False):
         """ Compute the minimum and maximum of the loss function over the domain.
             This assumes that the domain is an nBox. """
         if (isinstance(self.domain, nBox) or isinstance(self.domain, UnionOfDisjointnBoxes) 
             or isinstance(self.domain, DifferenceOfnBoxes)):
+            verts = self.domain.vertices()
+            vals = self.val(verts)
+            idx = np.argmin(vals)
+            if argmin:
+                return verts[idx], vals[idx]
+            else:
+                return vals[idx]
             return np.min(self.val(self.domain.vertices()))
         else:
             raise Exception(('Sorry, for now only nBox, UnionOfDisjointnBoxes and DifferenceOfnBoxes '
@@ -229,36 +236,29 @@ class QuadraticLossFunction(LossFunction):
                 raise Exception(('Sorry, for now only nBox, UnionOfDisjointnBoxes and DifferenceOfnBoxes '
                                  + 'are supported for computing minimum and maximum of AffineLossFunctions'))
 
-    def min(self, **kwargs):
+    def min(self, argmin=False, **kwargs):
         """ Compute the minimum of the loss function over the domain. """
-        try:
-            return self.bounds['min']
-        except (KeyError, AttributeError) as e:
-            if isPosDef(self.Q):
-                if self.domain.iselement(np.array(self.mu, ndmin=2)):
-                    minval = self.c
-                elif (isinstance(self.domain, nBox) or isinstance(self.domain, UnionOfDisjointnBoxes)):
-                    minval = self.find_boxmin()
-                else:
-                    try:
-                        minval = np.min(self.val(kwargs['grid']))
-                    except KeyError:
-                        minval = np.min(self.val(self.domain.grid(50000))) # this is a hack
+        if isPosDef(self.Q):
+            if self.domain.iselement(np.array(self.mu, ndmin=2)):
+                minval, smin = self.c, self.mu
+            elif (isinstance(self.domain, nBox) or isinstance(self.domain, UnionOfDisjointnBoxes)):
+                minval, smin = self.find_boxmin(argmin=True)
             else:
-                try:
-                    minval = np.min(self.val(kwargs['grid']))
-                except KeyError:
-                    minval = np.min(self.val(self.domain.grid(50000))) # this is a hack
-            try:
-                self.bounds['min'] = minval
-            except AttributeError:
-                self.bounds = {'min':minval}
-            return self.bounds['min']
-#             else:
-#                 raise Exception(('Sorry, for now only nBox, UnionOfDisjointnBoxes and DifferenceOfnBoxes '
-#                                      + 'are supported for computing minimum and maximum of AffineLossFunctions'))
-    
-    def find_boxmin(self):
+                grid = self.domain.grid(50000)
+                vals = self.val(grid)
+                idxmin = np.argmin(vals)
+                minval, smin = vals[idxmin], grid[idxmin]
+        else:
+            grid = self.domain.grid(50000)
+            vals = self.val(grid)
+            idxmin = np.argmin(vals)
+            minval, smin = vals[idxmin], grid[idxmin]
+        if argmin:
+            return minval, smin
+        else:
+            return minval
+                
+    def find_boxmin(self, argmin=False):
         if isinstance(self.domain, nBox):
             bounds = [self.domain.bounds]
         elif isinstance(self.domain, UnionOfDisjointnBoxes):
@@ -271,7 +271,14 @@ class QuadraticLossFunction(LossFunction):
         G = spmatrix([-1,1]*n, np.arange(2*n), np.repeat(np.arange(n), 2), tc='d')
         hs = [matrix(np.array([-1,1]*n)*np.array(bound).flatten(), tc='d') for bound in bounds]
         solvers.options['show_progress'] = False
-        return np.min([self.val(np.array(res['x'], ndmin=2)) for res in [solvers.qp(P, q, G, h) for h in hs]])
+        results = [solvers.qp(P, q, G, h) for h in hs]
+        smins = np.array([np.array(res['x']).flatten() for res in results])
+        vals = self.val(smins)
+        idxmin = np.argmin(vals)
+        if argmin:
+            return vals[idxmin], smins[idxmin]
+        else:
+            return vals[idxmin]
 
     def grad(self, points): 
         return np.transpose(np.dot(self.Q, np.transpose(points - self.mu)))
@@ -381,10 +388,17 @@ class PolynomialLossFunction(LossFunction):
         else:
             return M
         
-    def min(self):
+    def min(self, argmin=False):
         """ Compute the maximum of the loss function over the domain.
             For now resort to stupid gridding. """
-        return np.min(self.val(self.domain.grid(10000))) # this is a hack
+        grid = self.domain.grid(50000)
+        vals = self.val(grid)
+        idxmin = np.argmin(vals)
+        minval, smin = vals[idxmin], grid[idxmin]
+        if argmin:
+            return minval, smin
+        else:
+            return minval
 
     def grad(self, points): 
         """ Computes the gradient of the PolynomialLossFunction at the specified points """
