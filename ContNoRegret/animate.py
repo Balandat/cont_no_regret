@@ -45,7 +45,10 @@ def save_animations(results, length=10, directory=None, show=False, **kwargs):
             ax.set_ylabel('$s_2$')
             ax.set_zlim3d([-0.5, zmax])
             ax.set_zlabel('$x$')
-            ax.set_title('pdf animation test')
+            ax.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+            ax.w_yaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+            ax.w_zaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+            ax.view_init(elev=kwargs.get('elev'), azim=kwargs.get('azim'))
             
             def update_plot(framenum, data, plot):
                 ax.clear()
@@ -57,7 +60,10 @@ def save_animations(results, length=10, directory=None, show=False, **kwargs):
                 ax.set_ylabel('$s_2$')
                 ax.set_zlim3d([-0.5, zmax])
                 ax.set_zlabel('$x$')
-                ax.set_title('pdf animation test')
+                ax.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+                ax.w_yaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+                ax.w_zaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+                ax.view_init(elev=kwargs.get('elev'), azim=kwargs.get('azim'))
                 return plot
        
             # Creating the Animation object

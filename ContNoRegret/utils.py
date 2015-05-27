@@ -8,6 +8,8 @@ Collection of utility functions to analyze Continuous No-Regret algorithms
 import numpy as np
 import pickle, os
 from matplotlib import pyplot as plt
+from matplotlib import cm
+import mpl_toolkits.mplot3d.axes3d as p3
 from .Domains import nBox, DifferenceOfnBoxes
 
 
@@ -211,7 +213,7 @@ def plot_dims(results, directory=None, show=True):
             plt.savefig(filename + 'loglogtavgloss.pdf', bbox_inches='tight', dpi=300)
         if show:
             plt.show()
-            
+        plt.close()
             
 # def plot_dims(results, directory=None, show=True):
 #         """ Plots and shows or saves (or both) the simulation results """
@@ -248,12 +250,18 @@ def plot_loglogs(results, directory=None, show=True, bounds=True, **kwargs):
         plt.xlabel('t')
         colors = ['k', 'r', 'g', 'b', 'c', 'm', 'y']*3
         loss_styles = ['-', '--', '-.', ':']*3
+        labs = kwargs.get('labels')
         # and now plot, depending on what data is there
         for i,loss_results in enumerate(results):
             for j,key in enumerate(loss_results.keys()):
                 r = loss_results[key]
+                if labs is not None:
+                    lab = labs[i][j]
+                    print(lab)
+                else:
+                    lab = r.label
                 lltsavg = plt.plot(np.arange(1,r.problem.T+1), r.regs_norate['tsavg'][0], linewidth=2.0, 
-                                   linestyle=loss_styles[i], color=colors[j], label=r.label, rasterized=True)
+                                   linestyle=loss_styles[i], color=colors[j], label=lab, rasterized=True)
                 plt.fill_between(np.arange(1,r.problem.T+1), r.regs_norate['tavg_perc_10'][0], r.regs_norate['tavg_perc_90'][0], 
                                  linestyle=loss_styles[i], color=colors[j], alpha=0.1, rasterized=True)
                 if bounds:
@@ -271,6 +279,7 @@ def plot_loglogs(results, directory=None, show=True, bounds=True, **kwargs):
             plt.savefig(filename + 'loglogtavgloss.pdf', bbox_inches='tight', dpi=300)
         if show:
             plt.show()
+        plt.close()
             
 # def plot_u0s(results, directory=None, show=True, bounds=False):
 #         """ Plots and shows or saves (or both) the simulation results """
@@ -303,35 +312,46 @@ def plot_loglogs(results, directory=None, show=True, bounds=True, **kwargs):
 #         if show:
 #             plt.show()
 
-# def plot_loglogs(results, directory=None, show=True, bounds=False):
-#         """ Plots and shows or saves (or both) the simulation results """
-#         # set up figures
-#         f = plt.figure()
-#         lossname = list(results[0].values())[0].problem.lossfuncs[0].desc
-#         plt.title(r'log time-avg. cumulative regret, {} losses'.format(lossname))
-#         plt.xlabel('t')
-#         colors = ['k', 'r', 'g', 'b', 'c', 'm', 'y']*3
-#         loss_styles = ['-', '--', '-.', ':']*3
-#         # and now plot, depending on what data is there
-#         for i, result_dict in enumerate(results):
-#             for j,result in enumerate(result_dict.values()):
-#                 lltsavg = plt.plot(np.arange(1,result.problem.T+1), result.regs['tsavg'], linewidth=2.0, 
-#                                    linestyle=loss_styles[i], color=colors[j], label=result.label, rasterized=True)
-# #                 plt.fill_between(np.arange(1,result.problem.T+1), result.regs['tavg_perc_10'], result.regs['tavg_perc_90'], 
-# #                                  linestyle=loss_styles[i], alpha=0.1, rasterized=True)
-#                 if bounds:
-#                     plt.plot(np.arange(1,result.problem.T+1), result.regs['tsavgbnd'], 
-#                              color=colors[j], linewidth=3, rasterized=True)      
-#         # make plots pretty and show legend
-#         plt.yscale('log'), plt.xscale('log')
-#         plt.legend(loc='lower left', prop={'size':10}, frameon=False) 
-#         if directory:
-#             os.makedirs(directory+'figures/', exist_ok=True) # this could probably use a safer implementation  
-#             filename = '{}{}_{}_'.format(directory+'figures/', results[0][0].problem.desc, results[0][0].problem.lossfuncs[0].desc)
-#             plt.savefig(filename + 'loglogtavgloss.pdf', bbox_inches='tight', dpi=300)
-#         if show:
-#             plt.show()
-            
+
+def plot_snapshots(results, times, directory=None, show=False, **kwargs):
+    """ Creates a sequence of plots from the pltdata array in the results at the
+        time steps specified in times (will be ordered increasing). 
+        Here results is an iterable of results. The resulting figure will have 
+        len(results) x len(times) plots. """
+    pltpoints = results[0].problem.pltpoints
+    fig = plt.figure(figsize=kwargs.get('figsize'))
+    # idk why the FUCK this does not work just using np arrays!?
+    zmax = np.max([np.max([np.max([np.max(df) for df in dflat]) for dflat in result.pltdata]) for result in results])
+    zmin = np.min([np.min([np.min([np.min(df) for df in dflat]) for dflat in result.pltdata]) for result in results])
+    for i,result in enumerate(results):
+        bbox = result.problem.domain.bbox()
+        for j,time in enumerate(np.sort(times)):
+            ax = fig.add_subplot(len(results), len(times), len(times)*i+j+1, projection='3d')
+            for points,dat in zip(pltpoints, result.pltdata[time]):
+                ax.plot_trisurf(points[:,0], points[:,1], dat, cmap=plt.get_cmap('jet'), 
+                               linewidth=0, vmin=zmin, vmax=zmax)
+            # Setting the axes properties
+            ax.set_xlim3d(bbox.bounds[0])
+            ax.set_xlabel('$s_1$')
+            ax.set_ylim3d(bbox.bounds[1])
+            ax.set_ylabel('$s_2$')
+            ax.set_zlim3d([-0.1, zmax])
+            ax.set_zlabel('$x$')
+            ax.set_title('t={}'.format(time))
+            ax.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+            ax.w_yaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+            ax.w_zaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
+            ax.view_init(elev=kwargs.get('elev'), azim=kwargs.get('azim'))
+    plt.tight_layout()
+    if directory:
+        os.makedirs(directory, exist_ok=True) # this could probably use a safer implementation  
+        filename = '{}{}_{}_'.format(directory, results[0].problem.desc, 
+                                     results[0].problem.lossfuncs[0].desc)
+        plt.savefig(filename + 'snapshots.pdf', bbox_inches='tight', dpi=300)
+    if show:
+        plt.show()
+    plt.close()
+
 
 def save_results(results, directory):
     """ Serializes a results object for persistent storage using the pickle module. """ 
