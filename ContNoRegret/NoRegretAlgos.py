@@ -27,9 +27,13 @@ class ContNoRegretProblem(object):
         self.T = len(lossfuncs)
         self.optaction, self.optval = None, None
         self.desc = desc
-        self.data = []
-        #if domain.n == 2:
-        #    self.pltpoints = self.create_pltpoints(1000)
+        if domain.n == 2:
+            if isinstance(domain, nBox):
+                self.pltpoints = [domain.grid(2000)]
+            elif isinstance(domain, UnionOfDisjointnBoxes):
+                weights = np.array([nbox.volume for nbox in domain.nboxes])
+                self.pltpoints = [nbox.grid(2000*weight/sum(weights)) for nbox,weight in zip(domain.nboxes,weights)]
+                
                    
     def cumulative_loss(self, points):
         """ Computes the cumulative loss at the given points """
@@ -94,7 +98,7 @@ class ContNoRegretProblem(object):
             pot = kwargs['potential']
             reg_info = {'savg':[], 'tsavg':[], 'tsavgbnd':[], 'perc_10':[], 
                         'perc_90':[], 'tavg_perc_10':[], 'tavg_perc_90':[]}
-            if  kwargs.get('opt_rate') == True:
+            if kwargs.get('opt_rate') == True:
                 if (isinstance(pot, ExponentialPotential) or isinstance(pot, pExpPotential)):
                     theta = np.sqrt((pot.c_omega*(self.domain.n-np.log(self.domain.v)) 
                                      + pot.d_omega*self.domain.v)/2/self.M**2)
@@ -120,7 +124,9 @@ class ContNoRegretProblem(object):
                 regrets = self.simulate(N, algo=algo, Ngrid=Ngrid, **kwargs)[2]
                 self.parse_regrets(reg_info, regrets) 
 #                 self.regret_bound(reg_info, algo, alpha=alpha, theta=theta, potential=pot)
-                result_args['regs_{}'.format(algo)] = reg_info
+                result_args['regs_DAetas'] = reg_info
+            if kwargs.get('animate') is not None:
+                result_args['pltdata'] = kwargs.get('animate')
 #             if 'etaopts' in kwargs:
 #                 regs_etaopts = {'savg':[], 'tsavg':[], 'tsavgbnd':[], 'perc_10':[], 
 #                                 'perc_90':[], 'tavg_perc_10':[], 'tavg_perc_90':[]}
@@ -180,8 +186,6 @@ class ContNoRegretProblem(object):
         """ Simulates the result of running the No-Regret algorithm (N times).
             Returns a list of sequences of decisions and associated losses, one for each run. 
             The grid is used for computing both the regret and the actions! """
-#         if etas == 'opt': # use optimal choice of etas
-#             etas = compute_etaopt(self.domain, self.M, self.T)*np.ones(self.T)
         if algo in ['DA', 'GP', 'OGD']:
             etas = kwargs.get('etas')
             if algo == 'DA':
@@ -216,10 +220,6 @@ class ContNoRegretProblem(object):
                     # compute nustar for warm-starting the intervals of root-finder
                     nustar = -1/etas[t]*pot.phi_inv(1/self.domain.volume)
                     action = self.domain.sample_uniform(N)
-                    try:
-                        self.data.append([np.ones(pltpoints.shape[0])/self.domain.volume 
-                                          for pltpoints in self.pltpoints])
-                    except AttributeError: pass
                 else:
 #                     if (isinstance(cumLossFunc, AffineLossFunction) and isinstance(pot, ExponentialPotential) and
 #                         isinstance(self.domain, nBox)):
@@ -232,11 +232,9 @@ class ContNoRegretProblem(object):
                     np.random.seed()
                     action = gridpoints[np.random.choice(weights.shape[0], size=N, p=weights/np.sum(weights))]
                     del weights
-                    
-                    try:
-                        self.data.append([np.maximum(pot.phi(-etas[t]*(cumLossFunc.val(pltpoints) + nustar)), 0) 
-                                          for pltpoints in self.pltpoints])
-                    except AttributeError: pass
+                if kwargs.get('animate') is not None:
+                    kwargs.get('animate').append([np.maximum(pot.phi(-etas[t]*(cumLossFunc.val(pltpoints) + nustar)), 0) 
+                                                  for pltpoints in self.pltpoints])
             elif algo == 'ONS': # Hazan's Online Newton Step
                 if t == 0: 
                     action = self.domain.sample_uniform(N) # pick arbitrary action in the first step, may as well sample
@@ -357,10 +355,14 @@ class Results(object):
         self.problem = problem #, self.regs = problem, regs
         self.label = kwargs.get('label')
         self.algo = kwargs.get('algo')
+        if kwargs.get('pltdata') is not None:
+            self.pltdata = kwargs.get('pltdata')
         if 'etas' in kwargs:
             self.etas = kwargs['etas']
         if self.algo == 'DA':
             try: self.regs_norate = kwargs['regs_DAopt']
+            except: KeyError
+            try: self.regs_norate = kwargs['regs_DAetas']
             except: KeyError
             try: self.etaopts, self.regs_etaopts = kwargs['etaopts'], kwargs['regs_etaopts'] 
             except KeyError: pass
