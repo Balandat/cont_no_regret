@@ -370,8 +370,8 @@ def vboxes(n, v):
     a, b = (1-v)**(1/n), v**(1/n)
     return UnionOfDisjointnBoxes([nBox([(0,a),]*n), nBox([(-b,0),]*n)])
 
-def vL(v, Npath=None):
-    """ Returns an L-shaped UnionOfDisjointnBoxes with sepcified v in dimension 2"""
+def vL(v, Npath=None, epsilon=0):
+    """ Returns an L-shaped UnionOfDisjointnBoxes with specified v in dimension 2"""
     if v == 1:
         L = nBox([(0,1),(0,1)])
     else:  
@@ -381,12 +381,16 @@ def vL(v, Npath=None):
         L.v = v
     if Npath is not None:
         if v == 1:
-            path = np.array([np.linspace(0.05, 0.95, Npath)]*2).T
+            path = (1-epsilon)*np.array([np.linspace(0.05, 0.95, Npath)]*2).T + epsilon*L.sample_uniform(Npath)
         else:
             N1 = np.floor(0.25*Npath)
             N2 = Npath - N1
-            path = np.array([np.concatenate([np.linspace(0.95*a[0], 0.5*b[0], N1), 0.5*b[0]*np.ones(N2)]),
-                             np.concatenate([0.5*a[1]*np.ones(N1), np.linspace(0.5*a[1], 0.95*b[1], N2)])]).T
+            p1 = np.array([np.linspace(0.95*a[0], 0.5*b[0], N1), 0.5*a[1]*np.ones(N1)]).T
+            p2 = np.array([0.5*b[0]*np.ones(N2), np.linspace(0.5*a[1], 0.95*b[1], N2)]).T
+            path = np.concatenate([(1-epsilon)*p1 + epsilon*L.nboxes[1].sample_uniform(N1),
+                                   (1-epsilon)*p2 + epsilon*L.nboxes[0].sample_uniform(N2)])
+#             path = np.array([np.concatenate([np.linspace(0.95*a[0], 0.5*b[0], N1), 0.5*b[0]*np.ones(N2)]),
+#                              np.concatenate([0.5*a[1]*np.ones(N1), np.linspace(0.5*a[1], 0.95*b[1], N2)])]).T
         return L, path
     else:
         return L
