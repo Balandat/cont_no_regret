@@ -1,0 +1,1 @@
+[{key:res for key,res in results.items() if 'pNormPot, '+p in key} for p in ['$p={1.05}$', '$p={1.75}$']]
