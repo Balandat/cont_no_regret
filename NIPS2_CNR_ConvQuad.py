@@ -16,8 +16,7 @@ from ContNoRegret.LossFunctions import QuadraticLossFunction, random_QuadraticLo
 from ContNoRegret.NoRegretAlgos import ContNoRegretProblem
 from ContNoRegret.utils import CNR_worker, plot_results, save_results, circular_tour
 from ContNoRegret.animate import save_animations
-from ContNoRegret.Potentials import (ExponentialPotential, IdentityPotential, pNormPotential, CompositePotential,
-                                        ExpPPotential, pExpPotential, HuberPotential, LogtasticPotential, FractionalLinearPotential)
+from ContNoRegret.Potentials import ExponentialPotential, pNormPotential, ExpPPotential, pExpPotential
 
 # this is the location of the folder for the results
 results_path = '/home/max/Documents/CNR_results/'
@@ -30,13 +29,13 @@ show_plots = False
 save_anims = False
 show_anims = False
 
-T = 7500 # Time horizon
+T = 10000 # Time horizon
 M = 10.0 # Uniform bound on the function (in the dual norm)
 L = 5.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
-Ngrid = 250000 # Number of gridpoints for the sampling step
+Ngrid = 500000 # Number of gridpoints for the sampling step
 H = 0.1 # strict convexity parameter (lower bound on evals of Q)
-dom = unitbox(3)
+dom = unitbox(2)
 
 # before running the computation, read this file so we can later save a copy in the results folder
 with open(__file__, 'r') as f:
@@ -49,8 +48,8 @@ mus_random = dom.sample_uniform(T)
 # mus = ((1-epsilon)*mus_circ + epsilon*mus_random)
 lossfuncs, Mnew, lambdamax = random_QuadraticLosses(dom, mus_random, L, M, pd=True, H=H)
 alpha_ec = H/dom.diameter/lambdamax
-M2 = np.max([lossfunc.norm(2, tmpfolder=tmpfolder) for lossfunc in lossfuncs])
-
+# M2 = np.max([lossfunc.norm(2, tmpfolder=tmpfolder) for lossfunc in lossfuncs])
+M15 = np.max([lossfunc.norm(2, tmpfolder=tmpfolder) for lossfunc in lossfuncs])
 
 # testfunc = QuadraticLossFunction(dom, [0.25,0.25], np.array([[2,0.5],[0.5,2]]), 0)
 # c = testfunc.min()
@@ -66,7 +65,7 @@ M2 = np.max([lossfunc.norm(2, tmpfolder=tmpfolder) for lossfunc in lossfuncs])
 prob = ContNoRegretProblem(dom, lossfuncs, L, Mnew, desc=desc)
   
 # # Select a number of potentials for the Dual Averaging algorithm
-potentials = [ExponentialPotential(), pNormPotential(2, M=M2)]
+potentials = [ExponentialPotential(), pNormPotential(1.5, M=M15)]
 # potentials = [FractionalLinearPotential(1), pNormPotential(2)]
   
 # the following runs fine if the script is the __main__ method, but crashes when running from ipython
