@@ -2,7 +2,7 @@
 Comparison of Continuous No-Regret Algorithms for the 2nd NIPS paper
 
 @author: Maximilian Balandat
-@date: May 25, 2015
+@date: May 27, 2015
 '''
 
 # Set up infrastructure and basic problem parameters
@@ -16,7 +16,7 @@ from ContNoRegret.LossFunctions import AffineLossFunction
 from ContNoRegret.NoRegretAlgos import ContNoRegretProblem
 from ContNoRegret.utils import CNR_worker, plot_results, save_results, circular_tour
 from ContNoRegret.animate import save_animations
-from ContNoRegret.Potentials import ExponentialPotential, pNormPotential
+from ContNoRegret.Potentials import ExponentialPotential, pNormPotential, ExpPPotential, pExpPotential
 
 # this is the location of the folder for the results
 results_path = '/Users/balandat/Documents/Code/Continuous_No-Regret/results/'
@@ -29,7 +29,7 @@ show_plots = False
 save_anims = False
 show_anims = False
 
-T = 7500 # Time horizon
+T = 10000 # Time horizon
 L = 5.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
 Ngrid = 500000 # Number of gridpoints for the sampling step
@@ -40,8 +40,11 @@ with open(__file__, 'r') as f:
     thisfile = f.read()
 
 # create a sequence of losses that is really baaaad for greedy
-lossfuncs = [AffineLossFunction(dom, [(-1)**t*t/T*L, 0], 0.5*t/T*L) for t in range(T)]
+lossfuncs = [AffineLossFunction(dom, [L/2, 0], 0.25*L)] + [AffineLossFunction(dom, [(-1)**t*L, 0], 0.5*L) for t in np.arange(1,T)]
 M = L
+M4 = np.max([lossfunc.norm(4, tmpfolder=tmpfolder) for lossfunc in lossfuncs])
+M83 = np.max([lossfunc.norm(8/3, tmpfolder=tmpfolder) for lossfunc in lossfuncs])
+
 prob = ContNoRegretProblem(dom, lossfuncs, L, M, desc=desc)
 
 # the following runs fine if the script is the __main__ method, but crashes when running from ipython
@@ -51,7 +54,8 @@ processes = []
 processes.append(pool.apply_async(CNR_worker, (prob,N,'Greedy'), {'Ngrid':Ngrid, 'pid':len(processes), 
                                                                   'tmpfolder':tmpfolder, 'label':'Greedy'}))
 
-potentials = [ExponentialPotential(), pNormPotential(1.25), pNormPotential(1.5), pNormPotential(1.75)]
+potentials = [ExponentialPotential(), pNormPotential(1.01), pNormPotential(1.01),  
+              pExpPotential(1.5, M=M4), pNormPotential(1.75, M=M83)]
 
 for pot in potentials:
     processes.append(pool.apply_async(CNR_worker, (prob,N,'DA'), {'opt_rate':True, 'Ngrid':Ngrid,

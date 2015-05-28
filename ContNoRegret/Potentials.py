@@ -2,11 +2,10 @@
 A collection of omega-potentials for Dual Averaging
 
 @author: Maximilian Balandat
-@date: May 25, 2015
+@date: May 27, 2015
 '''
 
 import numpy as np
-
 
 class OmegaPotential(object):
     """ Base class for omega potentials """
@@ -302,61 +301,7 @@ class FractionalExponentialPotential(OmegaPotential):
                 '   else{\n',
                 '     return exp({}*(z-1));}}\n'.format(self.gamma),
                 '   }']
-        
-
-# class CompositePotential(OmegaPotential):
-#     """ A composite zero potential formed by stitching together a
-#         fractional and a quadratic function """
-#     
-#     def __init__(self, gamma=2, desc='CompPot'):
-#         """ Constructor """
-#         self.gamma = gamma
-#         self.c = (gamma-1)**(-1)
-#         a2 = gamma*(1+gamma)/2
-#         a1 = gamma - 2*self.c*a2
-#         a0 = 1 - self.c*a1 - self.c**2*a2
-#         self.a = np.array([a0, a1, a2])
-#         self.desc = desc + ', ' + r'$\gamma={{{}}}$'.format(gamma)
-#         
-#     def phi(self, u):
-#         """ Returns phi(u), the value of the zero-potential at the points u"""
-#         return ( (u<self.c)*(self.gamma/(self.gamma-1)-np.minimum(u,self.c))**(-self.gamma) + 
-#                  (u>=self.c)*(self.a[0]+self.a[1]*np.maximum(u,self.c)+self.a[2]*np.maximum(u,self.c)**2) )
-#         
-#     def phi_prime(self, u):
-#         """ Returns phi'(u), the first derivative of the zero-potential at the points u """
-#         return ( (u<self.c)*self.gamma*(self.gamma/(self.gamma-1)-np.minimum(u,self.c))**(-(1+self.gamma)) + 
-#                  (u>=self.c)*(self.a[1]+2*self.a[2]*np.maximum(u,self.c)) )
-#  
-#     def phi_double_prime(self, u):
-#         """ Returns phi''(u), the second derivative of the zero-potential at the points u """
-#         return ( (u<self.c)*self.gamma*(1+self.gamma)*(self.gamma/(self.gamma-1)-np.minimum(u,self.c))**(-(2+self.gamma)) + 
-#                  (u>=self.c)*2*self.a[2] )
-#      
-#     def phi_inv(self, u):
-#         """ Returns phi^{-1}(u), the inverse function of the zero-potential at the points u """
-#         b = self.phi(self.c)
-#         return ( (u<b)*(self.gamma/(self.gamma-1)-np.minimum(u,b)**(-1/self.gamma)) + 
-#                  (u>=b)*(-self.a[1]/2/self.a[2]+np.sqrt(self.a[1]**2/4/self.a[2]**2 - (self.a[0]-np.maximum(u,b))/self.a[2])) )
-#      
-#     def phi_inv_prime(self, u):
-#         """ Returns phi^{-1}'(u), the first derivative of the inverse 
-#             function of the zero-potential at the points u """
-#         return 1/self.phi_prime(self.phi_inv(u))
-#     
-#     def isconvex(self):
-#         """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
-#         return True
-#            
-#     def gen_ccode(self):
-#         """ Generates a c-code snippet used for fast numerical integration """
-#         return ['   double z = -eta*(loss + nu);\n',
-#                 '   if(z<{}){{\n'.format(self.c),
-#                 '     return pow({}-z, -{});}}\n'.format(self.gamma*self.c, self.gamma),
-#                 '   else{\n',
-#                 '     return {} + {}*z + {}*pow(z,2);}}\n'.format(*[a for a in self.a]),
-#                 '   }']
-    
+       
     
 class ExpPPotential(OmegaPotential):
     """ A potential given by a composition of an exponential and a p norm """
@@ -438,7 +383,61 @@ class pExpPotential(OmegaPotential):
                 '     return 0.0;}\n',
                 '   }']
                
-    
+
+
+# class CompositePotential(OmegaPotential):
+#     """ A composite zero potential formed by stitching together a
+#         fractional and a quadratic function """
+#     
+#     def __init__(self, gamma=2, desc='CompPot'):
+#         """ Constructor """
+#         self.gamma = gamma
+#         self.c = (gamma-1)**(-1)
+#         a2 = gamma*(1+gamma)/2
+#         a1 = gamma - 2*self.c*a2
+#         a0 = 1 - self.c*a1 - self.c**2*a2
+#         self.a = np.array([a0, a1, a2])
+#         self.desc = desc + ', ' + r'$\gamma={{{}}}$'.format(gamma)
+#         
+#     def phi(self, u):
+#         """ Returns phi(u), the value of the zero-potential at the points u"""
+#         return ( (u<self.c)*(self.gamma/(self.gamma-1)-np.minimum(u,self.c))**(-self.gamma) + 
+#                  (u>=self.c)*(self.a[0]+self.a[1]*np.maximum(u,self.c)+self.a[2]*np.maximum(u,self.c)**2) )
+#         
+#     def phi_prime(self, u):
+#         """ Returns phi'(u), the first derivative of the zero-potential at the points u """
+#         return ( (u<self.c)*self.gamma*(self.gamma/(self.gamma-1)-np.minimum(u,self.c))**(-(1+self.gamma)) + 
+#                  (u>=self.c)*(self.a[1]+2*self.a[2]*np.maximum(u,self.c)) )
+#  
+#     def phi_double_prime(self, u):
+#         """ Returns phi''(u), the second derivative of the zero-potential at the points u """
+#         return ( (u<self.c)*self.gamma*(1+self.gamma)*(self.gamma/(self.gamma-1)-np.minimum(u,self.c))**(-(2+self.gamma)) + 
+#                  (u>=self.c)*2*self.a[2] )
+#      
+#     def phi_inv(self, u):
+#         """ Returns phi^{-1}(u), the inverse function of the zero-potential at the points u """
+#         b = self.phi(self.c)
+#         return ( (u<b)*(self.gamma/(self.gamma-1)-np.minimum(u,b)**(-1/self.gamma)) + 
+#                  (u>=b)*(-self.a[1]/2/self.a[2]+np.sqrt(self.a[1]**2/4/self.a[2]**2 - (self.a[0]-np.maximum(u,b))/self.a[2])) )
+#      
+#     def phi_inv_prime(self, u):
+#         """ Returns phi^{-1}'(u), the first derivative of the inverse 
+#             function of the zero-potential at the points u """
+#         return 1/self.phi_prime(self.phi_inv(u))
+#     
+#     def isconvex(self):
+#         """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
+#         return True
+#            
+#     def gen_ccode(self):
+#         """ Generates a c-code snippet used for fast numerical integration """
+#         return ['   double z = -eta*(loss + nu);\n',
+#                 '   if(z<{}){{\n'.format(self.c),
+#                 '     return pow({}-z, -{});}}\n'.format(self.gamma*self.c, self.gamma),
+#                 '   else{\n',
+#                 '     return {} + {}*z + {}*pow(z,2);}}\n'.format(*[a for a in self.a]),
+#                 '   }']
+#
 # class HuberPotential(OmegaPotential):
 #     """ The potential given by the Huber loss function  """
 #     
