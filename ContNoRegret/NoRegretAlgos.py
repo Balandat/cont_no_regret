@@ -99,9 +99,20 @@ class ContNoRegretProblem(object):
             reg_info = {'savg':[], 'tsavg':[], 'tsavgbnd':[], 'perc_10':[], 
                         'perc_90':[], 'tavg_perc_10':[], 'tavg_perc_90':[]}
             if kwargs.get('opt_rate') == True:
-                if (isinstance(pot, ExponentialPotential) or isinstance(pot, pExpPotential)):
+                if isinstance(pot, ExponentialPotential):
                     theta = np.sqrt((pot.c_omega*(self.domain.n-np.log(self.domain.v)) 
                                      + pot.d_omega*self.domain.v)/2/self.M**2)
+                    alpha = None
+                    print('Simulating {0}, {1}, opt. rate '.format(algo, pot.desc) + 
+                          'eta_t={0:.3f} sqrt(log t/t)'.format(theta))
+                    etas = theta*np.sqrt(np.log(1+np.arange(self.T)+1)/(1+np.arange(self.T)))
+                elif isinstance(pot, pExpPotential):
+                    try:
+                        M = pot.M
+                    except AttributeError:
+                        M = self.M
+                    theta = np.sqrt((pot.c_omega*(self.domain.n-np.log(self.domain.v)) 
+                                     + pot.d_omega*self.domain.v)/2/M**2)
                     alpha = None
                     print('Simulating {0}, {1}, opt. rate '.format(algo, pot.desc) + 
                           'eta_t={0:.3f} sqrt(log t/t)'.format(theta))
