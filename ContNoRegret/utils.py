@@ -372,7 +372,32 @@ def save_results(results, directory):
                                        results[0].problem.lossfuncs[0].desc)    
     with open(pigglname, 'wb') as f:
         pickle.dump(results, f, pickle.HIGHEST_PROTOCOL)     
- 
+
+
+def visualize_potentials(potentials, xlim=(-1,5), **kwargs):
+    u = np.linspace(xlim[0], xlim[1], 1000)
+    plt.figure(figsize=kwargs.get('figsize'))
+    labels = kwargs.get('labels')
+    if labels is None:
+        labels = [pot.desc for pot in potentials]
+    if kwargs.get('semilogy') == True:
+        for vals,label in zip([pot.phi(u) for pot in potentials], labels):
+            plt.semilogy(u, 1+vals, label=label)
+    else:
+        for vals,label in zip([pot.phi(u) for pot in potentials], labels):
+            plt.plot(u, vals, label=label, linewidth=2)
+    plt.ylim(kwargs.get('ylim'))
+    plt.xlabel('$u$', fontsize=15)
+    plt.ylabel('$\phi(u)$', fontsize=15)
+    plt.legend(loc=kwargs.get('loc'), frameon=False)
+    plt.title('Various $\omega$-potentials')
+    plt.tight_layout()
+    if kwargs.get('filename') is not None:
+        plt.savefig(kwargs.get('filename'), bbox_inches='tight', dpi=300)
+    if kwargs.get('show') is not False:
+        plt.show()
+    plt.close()
+    
             
 def circular_tour(domain, N):
     """ Returns a sequence of N points that wander around in a circle
