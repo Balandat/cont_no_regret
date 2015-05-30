@@ -29,7 +29,7 @@ show_plots = False
 save_anims = False
 show_anims = False
 
-T = 10000 # Time horizon
+T = 200 # Time horizon
 L = 5.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
 Ngrid = 500000 # Number of gridpoints for the sampling step
@@ -54,13 +54,13 @@ processes = []
 processes.append(pool.apply_async(CNR_worker, (prob,N,'Greedy'), {'Ngrid':Ngrid, 'pid':len(processes), 
                                                                   'tmpfolder':tmpfolder, 'label':'Greedy'}))
 
-potentials = [ExponentialPotential(), pNormPotential(1.01), pNormPotential(1.01),  
-              pExpPotential(1.5, M=M4), pNormPotential(1.75, M=M83)]
+potentials = [ExponentialPotential(), pNormPotential(1.001), pNormPotential(1.01), pNormPotential(1.05), pNormPotential(1.75, M=M83)]
+#               pExpPotential(1.5, M=M4), pNormPotential(1.75, M=M83)]
 
 for pot in potentials:
     processes.append(pool.apply_async(CNR_worker, (prob,N,'DA'), {'opt_rate':True, 'Ngrid':Ngrid,
 				  'potential':pot, 'pid':len(processes), 'tmpfolder':tmpfolder, 'label':pot.desc, 
-                  'results_path':results_path})) 
+                  'results_path':results_path, 'KL':[]})) 
 
 # wait for the processes to finish an collect the results
 results = [process.get() for process in processes]
@@ -72,12 +72,12 @@ results_directory = '{}{}/'.format(results_path, timenow)
 if save_res:   
     os.makedirs(results_directory, exist_ok=True) # this could probably use a safer implementation
 #     plot_results(results, 100, results_directory, show_plots)
-#     if save_anims:
-#         save_animations(results, 10, results_directory, show_anims)  
+    if save_anims:
+        save_animations(results, 10, results_directory, show_anims)  
     save_results(results, results_directory)  
     # store the previously read-in contents of this file in the results folder
     with open(results_directory+str(__file__), 'w') as f:
         f.write(thisfile)
-# else:
-#     plot_results(results, offset=100)
+else:
+    plot_results(results, offset=100)
 
