@@ -81,6 +81,10 @@ class ExponentialPotential(OmegaPotential):
         """ Generates a c-code snippet used for fast numerical integration """
         return ['   return exp(-eta*(loss + nu));}']
   
+    def gen_KLccode(self):
+        """ Generates a c-code snippet used for fast numerical integration for KL divergence"""
+        return ['   return -eta*(loss + nu)*exp(-eta*(loss + nu));}']
+   
    
 class IdentityPotential(OmegaPotential):
     """ The identity potential Phi(x) = x, which results in the Euclidean Projection  """
@@ -132,6 +136,13 @@ class IdentityPotential(OmegaPotential):
                 '   return fmax(z, 0.0);',
                 '   }']
 
+    def gen_KLccode(self):
+        """ Generates a c-code snippet used for fast numerical integration for KL divergence"""
+        return ['   double z = -eta*(loss + nu);\n',
+                '   return fmax(z, 0.0)*log(fmax(z, 0.0));',
+                '   }']
+        
+        
 
 class pNormPotential(OmegaPotential):
     """ The potential phi(u) = sgn(u)*|u|**(1/(p-1)) """
@@ -189,6 +200,15 @@ class pNormPotential(OmegaPotential):
                 '     return 0.0;}\n',
                 '   }']
 
+    def gen_KLccode(self):
+        """ Generates a c-code snippet used for fast numerical integration for KL divergence"""
+        return ['   double z = -eta*(loss + nu);\n',
+                '   if(z>0){\n',
+                '     return pow(z, {0})*log(pow(z, {0}));}}\n'.format(1/(self.p - 1)),
+                '   else{\n',
+                '     return 0.0;}\n',
+                '   }']
+        
 
 class FractionalLinearPotential(OmegaPotential):
     """ A fractional-linear potential formed by stitching together a
@@ -344,7 +364,17 @@ class ExpPPotential(OmegaPotential):
                 '   else{\n',
                 '     return exp({}*z);}}\n'.format(self.gamma),
                 '   }']
-          
+    
+    def gen_KLccode(self):
+        """ Generates a c-code snippet used for fast numerical integration for KL divergence"""
+        return ['   double z = -eta*(loss + nu);\n',
+                '   if(z>0){\n',
+                '     return pow({0}*(z + {1}), {2})*log(pow({0}*(z + {1}), {2}));}}\n'.format(self.gamma*(self.p - 1), 1/self.gamma/(self.p-1), 1/(self.p-1)),
+                '   else{\n',
+                '     return {0}*z*exp({0}*z);}}\n'.format(self.gamma),
+                '   }']
+    
+        
 
 class pExpPotential(OmegaPotential):
     """ A potential given by a composition of a p-norm and 
@@ -371,14 +401,25 @@ class pExpPotential(OmegaPotential):
     def isconvex(self):
         """ Returns True if phitilde(u) = max(phi(u), 0) is a convex function. """
         return True
-       
+
     def gen_ccode(self):
         """ Generates a c-code snippet used for fast numerical integration """
         return ['   double z = -eta*(loss + nu);\n',
                 '   if(z>0){\n',
-                '     return exp({}*z);}}\n'.format(self.gamma),
+                '     return exp({0}*z);}}\n'.format(self.gamma),
                 '   else if(z>{}){{\n'.format(-1/self.gamma/(self.p-1)),
-                '     return pow({}*(z + {}), {});}}\n'.format(self.gamma*(self.p - 1), 1/self.gamma/(self.p-1), 1/(self.p-1)),
+                '     return pow({0}*(z + {1}), {2});}}\n'.format(self.gamma*(self.p - 1), 1/self.gamma/(self.p-1), 1/(self.p-1)),
+                '   else{\n',
+                '     return 0.0;}\n',
+                '   }']
+       
+    def gen_KLccode(self):
+        """ Generates a c-code snippet used for fast numerical integration """
+        return ['   double z = -eta*(loss + nu);\n',
+                '   if(z>0){\n',
+                '     return {0}*z*exp({0}*z);}}\n'.format(self.gamma),
+                '   else if(z>{}){{\n'.format(-1/self.gamma/(self.p-1)),
+                '     return pow({0}*(z + {1}), {2})*log(pow({0}*(z + {1}), {2}));}}\n'.format(self.gamma*(self.p - 1), 1/self.gamma/(self.p-1), 1/(self.p-1)),
                 '   else{\n',
                 '     return 0.0;}\n',
                 '   }']

@@ -138,6 +138,8 @@ class ContNoRegretProblem(object):
                 result_args['regs_DAetas'] = reg_info
             if kwargs.get('animate') is not None:
                 result_args['pltdata'] = kwargs.get('animate')
+            if kwargs.get('KL') is not None:
+                result_args['KL'] = kwargs.get('KL')
 #             if 'etaopts' in kwargs:
 #                 regs_etaopts = {'savg':[], 'tsavg':[], 'tsavgbnd':[], 'perc_10':[], 
 #                                 'perc_90':[], 'tavg_perc_10':[], 'tavg_perc_90':[]}
@@ -231,6 +233,8 @@ class ContNoRegretProblem(object):
                     # compute nustar for warm-starting the intervals of root-finder
                     nustar = -1/etas[t]*pot.phi_inv(1/self.domain.volume)
                     action = self.domain.sample_uniform(N)
+                    if kwargs.get('KL') is not None:
+                        kwargs.get('KL').append(0)
                 else:
 #                     if (isinstance(cumLossFunc, AffineLossFunction) and isinstance(pot, ExponentialPotential) and
 #                         isinstance(self.domain, nBox)):
@@ -238,14 +242,14 @@ class ContNoRegretProblem(object):
 #                                              np.repeat(np.array(cumLossFunc.a, ndmin=2), N, axis=0), etas[t])
 #                     else:
                     nustar = compute_nustar(self.domain, pot, etas[t], cumLossFunc, self.M, nustar, 
-                                            etas[t-1], t, pid=kwargs['pid'], tmpfolder=kwargs['tmpfolder'])
+                                            etas[t-1], t, pid=kwargs['pid'], tmpfolder=kwargs['tmpfolder'], KL=kwargs.get('KL'))
                     weights = np.maximum(pot.phi(-etas[t]*(approxL + nustar)), 0)
                     np.random.seed()
                     action = gridpoints[np.random.choice(weights.shape[0], size=N, p=weights/np.sum(weights))]
                     del weights
                 if kwargs.get('animate') is not None:
                     kwargs.get('animate').append([np.maximum(pot.phi(-etas[t]*(cumLossFunc.val(pltpoints) + nustar)), 0) 
-                                                  for pltpoints in self.pltpoints])
+                                                  for pltpoints in self.pltpoints])                    
             elif algo == 'ONS': # Hazan's Online Newton Step
                 if t == 0: 
                     action = self.domain.sample_uniform(N) # pick arbitrary action in the first step, may as well sample
@@ -368,6 +372,8 @@ class Results(object):
         self.algo = kwargs.get('algo')
         if kwargs.get('pltdata') is not None:
             self.pltdata = kwargs.get('pltdata')
+        if kwargs.get('KL') is not None:
+            self.KL = kwargs.get('KL')
         if 'etas' in kwargs:
             self.etas = kwargs['etas']
         if self.algo == 'DA':

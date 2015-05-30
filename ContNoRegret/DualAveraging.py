@@ -16,7 +16,7 @@ from .Potentials import ExponentialPotential, IdentityPotential
 
 
 def compute_nustar(dom, potential, eta, Loss, M, nu_prev, eta_prev, t, 
-                   pid='0', tmpfolder='libs/'):
+                   pid='0', tmpfolder='libs/', KL=None):
     """ Determines the normalizing nustar for the dual-averaging update """ 
     tmpfile = '{}{}'.format(tmpfolder, str(uuid.uuid4()))
     with open(tmpfile+'.c', 'w') as file:
@@ -85,7 +85,27 @@ def compute_nustar(dom, potential, eta, Loss, M, nu_prev, eta_prev, t,
                         a, b = a - 20, b + 20
                         print('WARINING: PROCESS {} HAS ENCOUNTERED f(a)!=f(b)!'.format(pid))
         else:
-            raise Exception('For now, domain must be an nBox or a UnionOfDisjointnBoxes!') 
+            raise Exception('For now, domain must be an nBox or a UnionOfDisjointnBoxes!')
+        if KL is not None: # Compute KL(x*,lambda)
+            tmpfile_KL = '{}{}'.format(tmpfolder, str(uuid.uuid4()))
+            with open(tmpfile_KL+'.c', 'w') as file:
+                file.writelines(generate_ccode(dom, potential, eta, Loss, KL=True)) 
+            try:
+                call(['gcc', '-shared', '-o', tmpfile_KL+'.dylib', '-fPIC', tmpfile_KL+'.c'])
+                lib_KL = ctypes.CDLL(tmpfile_KL+'.dylib')
+                lib_KL.f.restype = ctypes.c_double
+                lib_KL.f.argtypes = (ctypes.c_int, ctypes.c_double)
+                KLval = np.sum([nquad(lib_KL.f, rng, args=[nustar], 
+                                      opts=[{'epsabs':1.49e-6, 'epsrel':1.49e-6}]*dom.n)[0] 
+                                for rng in ranges])
+                KL.append(KLval)
+            finally:
+                dlclose(lib_KL._handle)
+                del lib_KL
+                try:
+                    os.remove(tmpfile_KL+'.c') # clean up
+                    os.remove(tmpfile_KL+'.dylib') # clean up
+                except FileNotFoundError: pass
         return nustar
     finally: 
         dlclose(lib._handle) # this is to release the lib, so we can import the new version
@@ -96,13 +116,17 @@ def compute_nustar(dom, potential, eta, Loss, M, nu_prev, eta_prev, t,
         except FileNotFoundError: pass
 
 
-def generate_ccode(dom, potential, eta, Loss):
+def generate_ccode(dom, potential, eta, Loss, KL=False):
     """ Generates the c source code that is complied and used for faster numerical 
         integration (using ctypes). Hard-codes known parameters (except s and nu) as
         literals and returns a list of strings that are the lines of a C source file. """
     header = ['#include <math.h>\n\n',
               'double eta = {};\n'.format(eta)]
-    return header + Loss.gen_ccode() + potential.gen_ccode()
+    if KL:
+        return header + Loss.gen_ccode() + potential.gen_KLccode()
+    else: 
+        return header + Loss.gen_ccode() + potential.gen_ccode()
+
 
 
 
