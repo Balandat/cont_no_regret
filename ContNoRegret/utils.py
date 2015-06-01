@@ -313,7 +313,7 @@ def plot_loglogs(results, directory=None, show=True, bounds=True, **kwargs):
 #             plt.show()
 
 
-def plot_snapshots(results, times, directory=None, show=False, **kwargs):
+def plot_snapshots(results, times, filename=None, show=False, **kwargs):
     """ Creates a sequence of plots from the pltdata array in the results at the
         time steps specified in times (will be ordered increasing). 
         Here results is an iterable of results. The resulting figure will have 
@@ -343,11 +343,13 @@ def plot_snapshots(results, times, directory=None, show=False, **kwargs):
             ax.w_zaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
             ax.view_init(elev=kwargs.get('elev'), azim=kwargs.get('azim'))
     plt.tight_layout()
-    if directory:
-        os.makedirs(directory, exist_ok=True) # this could probably use a safer implementation  
-        filename = '{}{}_{}_'.format(directory, results[0].problem.desc, 
-                                     results[0].problem.lossfuncs[0].desc)
-        plt.savefig(filename + 'snapshots.pdf', bbox_inches='tight', dpi=300)
+#     if directory:
+#         os.makedirs(directory, exist_ok=True) # this could probably use a safer implementation  
+#         filename = '{}{}_{}_'.format(directory, results[0].problem.desc, 
+#                                      results[0].problem.lossfuncs[0].desc)
+#         plt.savefig(filename + 'snapshots.pdf', bbox_inches='tight', dpi=300)
+    if filename is not None:
+        plt.savefig(filename, bbox_inches='tight', dpi=300)
     if show:
         plt.show()
     plt.close()
