@@ -115,13 +115,15 @@ def save_animations_NIPS2(res1, res2, length=10, filename=None, show=False, **kw
         ax.set_xlabel('$s_1$')
         ax.set_ylim3d(bbox.bounds[1])
         ax.set_ylabel('$s_2$')
-        ax.set_zlabel('$x$')
+        ax.set_zlabel('$x(s)$')
+        ax.tick_params(labelsize=8)
         ax.set_zlim3d([-0.5, zmax])
         ax.set_zlim3d([-0.5, zmax])
         ax.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
         ax.w_yaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
         ax.w_zaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
         ax.view_init(elev=kwargs.get('elev'), azim=kwargs.get('azim'))
+    plt.tight_layout()
     
     def update_plots(framenum, data, plot):
         ax1.clear(), ax2.clear()
@@ -136,19 +138,21 @@ def save_animations_NIPS2(res1, res2, length=10, filename=None, show=False, **kw
             ax.set_xlabel('$s_1$')
             ax.set_ylim3d(bbox.bounds[1])
             ax.set_ylabel('$s_2$')
-            ax.set_zlabel('$x$')
+            ax.set_zlabel('$x(s)$')
+            ax.tick_params(labelsize=8)
             ax.set_zlim3d([-0.5, zmax])
             ax.set_zlim3d([-0.5, zmax])
             ax.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
             ax.w_yaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
             ax.w_zaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
             ax.view_init(elev=kwargs.get('elev'), azim=kwargs.get('azim'))
+        plt.tight_layout()
         return [plot1, plot2]
                
     # Creating the Animation object
     pdf_ani = animation.FuncAnimation(fig, update_plots, frames, 
                                       fargs=([pltdata1, pltdata2], [plot1, plot2]),
-                                      interval=interval, blit=False)
+                                      interval=interval, blit=False, )
     if filename is not None:
         pdf_ani.save(filename, extra_args=['-vcodec', 'libx264'])
     if show:
