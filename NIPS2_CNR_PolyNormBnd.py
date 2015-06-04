@@ -24,7 +24,7 @@ show_plots = False
 save_anims = False
 show_anims = False
 
-T = 1500 # Time horizon
+T = 4000 # Time horizon
 L = 5.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
 Ngrid = 250000 # Number of gridpoints for the sampling step
@@ -47,9 +47,9 @@ Minf, M2 = np.max(inf_norms2), np.max(two_norms2)
 prob = ContNoRegretProblem(dom, lossfuncs, L, Minf, desc=desc)
     
 # Select a number of potentials for the Dual Averaging algorithm
-potentials = [ExponentialPotential(), pNormPotential(1+nus2[0], M=Minf), pExpPotential(2, M=M2)] 
+# potentials = [ExponentialPotential(), pNormPotential(1+nus2[0], M=Minf), pExpPotential(2, M=M2)] 
 #[ExponentialPotential(), pNormPotential(1.05, M=Minf), pNormPotential(2, M=M2)]
-
+potentials = [pExpPotential(2, M=M2)]
   
 # the following runs fine if the script is the __main__ method, but crashes when running from ipython
 pool = mp.Pool(processes=mp.cpu_count()-1)
