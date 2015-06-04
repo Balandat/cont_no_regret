@@ -7,7 +7,6 @@ A collection of Domain classes for the Continuous No Regret Problem.
 
 import numpy as np
 from scipy.misc import factorial
-from scipy.optimize import brentq
 from cvxopt import solvers, matrix, spdiag, spmatrix
 
 class Domain(object):
@@ -389,8 +388,6 @@ def vL(v, Npath=None, epsilon=0):
             p2 = np.array([0.5*b[0]*np.ones(N2), np.linspace(0.5*a[1], 0.95*b[1], N2)]).T
             path = np.concatenate([(1-epsilon)*p1 + epsilon*L.nboxes[1].sample_uniform(N1),
                                    (1-epsilon)*p2 + epsilon*L.nboxes[0].sample_uniform(N2)])
-#             path = np.array([np.concatenate([np.linspace(0.95*a[0], 0.5*b[0], N1), 0.5*b[0]*np.ones(N2)]),
-#                              np.concatenate([0.5*a[1]*np.ones(N1), np.linspace(0.5*a[1], 0.95*b[1], N2)])]).T
         return L, path
     else:
         return L

@@ -42,7 +42,7 @@ class LossFunction(object):
         fig = plt.figure()
         ax = fig.gca(projection='3d')
         ax.plot_trisurf(pltpoints[:,0], pltpoints[:,1], vals, 
-                        cmap=cm.jet, linewidth=0.2)
+                        cmap=plt.get_cmap('jet'), linewidth=0.2)
         ax.set_xlabel('$s_1$'), ax.set_ylabel('$s_2$'), ax.set_zlabel('l$(z)$')
         ax.set_title('Loss')
         plt.show()
@@ -483,115 +483,7 @@ class PolynomialLossFunction(LossFunction):
                 '       mon = mon*pow(args[j], e[i*{}+j]);\n'.format(self.domain.n),
                 '       }\n',
                 '     loss += c[i]*mon;\n',
-                '     }\n']    
-    
-    
-    
-# class PiecewiseLossFunction(LossFunction):
-#     """ A piece-wise loss function in n dimensions defined over subdomains
-#         (for now assume just two... """ 
-#     
-#     def __init__(self, loss1, loss2, select=None):
-#         """ Construct a CompositeLossFunction from two individual loss functions     
-#             on the same domain, defined by the point-wise operation "select" between the 
-#             two functions. Here select is expected to be a callable that accepts a numpy 
-#             array of points, and returns a boolean numpy array of the same shape, where
-#             an entry "True" means that the first loss function is returned.
-#         """ 
-#         if not loss1.domain == loss2.domain:
-#             raise Exception('Loss functions must be defined on the same domain!')
-#         self.loss1, self.loss2 = loss1, loss2
-#         if select == None:
-#             self.select = lambda points: self.loss1.val(points) <= self.loss2.val(points)
-# 
-#     def val(self, points):
-#         select = self.select(points)
-#         return select*self.loss1.val(points) + np.bitwise_not(select)*self.loss2.val(points)
-#         
-#     def max(self, grad=False):
-#         """ Compute the maximum of the loss function over the domain. If grad=True
-#             also compute the maximum 2-norm of the gradient over the domain. 
-#             For now resort to stupid gridding. """
-#         if grad:
-#             M1, G1, M2, G2 = self.loss1.max(grad=True), self.loss2.max(grad=True)
-#             return np.maximum(M1, M2), np.maximum(G1, G2)
-#         else:
-#             return np.maximum(self.loss1.max(grad=False), self.loss2.max(grad=False))
-#         
-#     def min(self, grad=False):
-#         """ Compute the minimum of the loss function over the domain. """
-#         return np.minimum(self.loss1.min(), self.loss2.min())
-# 
-#     def grad(self, points): 
-#         """ Computes the gradient of the CompositeLossFunction at the specified points """
-#         select = self.select(points)
-#         return select*self.loss1.grad(points) + np.bitwise_not(select)*self.loss2.grad(points)
-#         
-#     def __add__(self, poly2):
-#         """ Add two Composite LossFunction objects (the convention here is that the
-#             loss functions are added individually!. """
-#         newdict = self.polydict.copy()
-#         for exps, coeff in poly2.polydict.items():
-#             try:
-#                 newdict[exps] = newdict[exps] + coeff
-#             except KeyError:
-#                 newdict[exps] = coeff
-#         return PolynomialLossFunction(self.domain, list(newdict.values()), list(newdict.keys()))
-#         
-#     def __mul__(self, scalar):
-#         """ Multiply a PolynomialLossFunction object with a scalar """
-#         return PolynomialLossFunction(self.domain, scalar*np.array(self.coeffs), self.exponents)
-#     
-#     def __rmul__(self, scalar):
-#         """ Multiply a PolynomialLossFunction object with a scalar """
-#         return self.__mul__(scalar)
-#         
-#     def norm(self, p, **kwargs):
-#         """ Computes the p-Norm of the loss function over the domain """
-#         if isinstance(self.domain, nBox):
-#             nboxes = [self.domain]
-#         elif isinstance(self.domain, UnionOfDisjointnBoxes):
-#             nboxes = self.domain.nboxes
-#         else:
-#             raise Exception('Sorry, so far only nBox and UnionOfDisjointnBoxes are supported!')
-#         if np.isinf(p):
-#             return self.max()
-#         else:
-#             ccode = ['#include <math.h>\n\n',
-#                      'double c[{}] = {{{}}};\n'.format(self.m, ','.join(str(coeff) for coeff in self.coeffs)),
-#                      'double e[{}] = {{{}}};\n\n'.format(self.m*self.domain.n, ','.join(str(xpnt) for xpntgrp in self.exponents for xpnt in xpntgrp)),
-#                      'double f(int n, double args[n]){\n',
-#                      '   double nu = *(args + {});\n'.format(self.domain.n),
-#                      '   int i,j;\n',
-#                      '   double mon;\n',  
-#                      '   double loss = 0.0;\n',
-#                      '   for (i=0; i<{}; i++){{\n'.format(self.m),
-#                      '     mon = 1.0;\n',
-#                      '     for (j=0; j<{}; j++){{\n'.format(self.domain.n),
-#                      '       mon = mon*pow(args[j], e[i*{}+j]);\n'.format(self.domain.n),
-#                      '       }\n',
-#                      '     loss += c[i]*mon;}\n',
-#                      '   return pow(fabs(loss), {});\n'.format(p),
-#                      '   }']  
-#             ranges = [nbox.bounds for nbox in nboxes]
-#             return ctypes_integrate(ccode, ranges, **kwargs)**(1/p)
-#     
-#     def gen_ccode(self):
-#         return ['double c[{}] = {{{}}};\n'.format(self.m, ','.join(str(coeff) for coeff in self.coeffs)),
-#                 'double e[{}] = {{{}}};\n\n'.format(self.m*self.domain.n, ','.join(str(xpnt) for xpntgrp in self.exponents for xpnt in xpntgrp)),
-#                 'double f(int n, double args[n]){\n',
-#                 '   double nu = *(args + {});\n'.format(self.domain.n),
-#                 '   int i,j;\n',
-#                 '   double mon;\n',  
-#                 '   double loss = 0.0;\n',
-#                 '   for (i=0; i<{}; i++){{\n'.format(self.m),
-#                 '     mon = 1.0;\n',
-#                 '     for (j=0; j<{}; j++){{\n'.format(self.domain.n),
-#                 '       mon = mon*pow(args[j], e[i*{}+j]);\n'.format(self.domain.n),
-#                 '       }\n',
-#                 '     loss += c[i]*mon;\n',
-#                 '     }\n']    
-        
+                '     }\n']      
         
         
 #######################################################################

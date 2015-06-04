@@ -10,7 +10,7 @@ import numpy as np
 from matplotlib import cm
 import mpl_toolkits.mplot3d.axes3d as p3
 import matplotlib.animation as animation
-from ContNoRegret.Domains import nBox, UnionOfDisjointnBoxes
+
 
 def save_animations(results, length=10, directory=None, show=False, **kwargs):
     """ Takes in a list of Result objects and creates and saves an animation of the 
@@ -106,8 +106,10 @@ def save_animations_NIPS2(res1, res2, length=10, filename=None, show=False, **kw
     # create initial objects
     for points,dat in zip(pltpoints1, pltdata1[0]):
         plot1 = ax1.plot_trisurf(points[:,0], points[:,1], dat, cmap=plt.get_cmap('jet'), vmin=zmin1, vmax=zmax1)
+        ax1.set_title(kwargs.get('titles')[0])
     for points,dat in zip(pltpoints2, pltdata2[0]):
         plot2 = ax2.plot_trisurf(points[:,0], points[:,1], dat, cmap=plt.get_cmap('jet'), vmin=zmin2, vmax=zmax2)
+        ax2.set_title(kwargs.get('titles')[1])
         
     for ax,bbox,zmax in zip([ax1,ax2], [bbox1,bbox2], [zmax1,zmax2]):
         # Setting the axes properties
@@ -129,8 +131,10 @@ def save_animations_NIPS2(res1, res2, length=10, filename=None, show=False, **kw
         ax1.clear(), ax2.clear()
         for points,dat in zip(pltpoints1, data[0][framenum]):
             plot1 = ax1.plot_trisurf(points[:,0], points[:,1], dat, linewidth=0, cmap=plt.get_cmap('jet'), vmin=zmin1, vmax=zmax1)
+            ax1.set_title(kwargs.get('titles')[0])
         for points,dat in zip(pltpoints2, data[1][framenum]):
             plot2 = ax2.plot_trisurf(points[:,0], points[:,1], dat, linewidth=0, cmap=plt.get_cmap('jet'), vmin=zmin2, vmax=zmax2)
+            ax2.set_title(kwargs.get('titles')[1])
         
         for ax,bbox,zmax in zip([ax1,ax2], [bbox1,bbox2], [zmax1,zmax2]):
             # Setting the axes properties
