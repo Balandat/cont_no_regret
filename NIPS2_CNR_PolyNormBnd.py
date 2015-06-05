@@ -40,7 +40,7 @@ idx = np.random.choice(len(coeffs2), T)
 coeffs = [coeffs2[i] for i in idx]
 exponents = [exponents2[i] for i in idx]
 
-lossfuncs = [PolynomialLossFunction(dom, coeff, expo) for coeff,expo in zip(coeffs2,exponents2)]
+lossfuncs = [PolynomialLossFunction(dom, coeff, expo) for coeff,expo in zip(coeffs,exponents)]
 Minf, M2 = np.max(inf_norms2), np.max(two_norms2)
 
 # create Continuous No-Regret problem
