@@ -388,10 +388,13 @@ class pExpPotential(OmegaPotential):
         if kwargs.get('M') is not None:
             self.M = kwargs.get('M')
         
+#     def phi(self, u):
+#         """ Returns phi(u), the value of the Pexp-potential at the points u"""
+#         return ( (u>=-1/self.gamma/(self.p-1))*(u<0)*(self.gamma*(self.p-1)*np.abs(u+1/self.gamma/(self.p-1)))**(1/(self.p-1)) + 
+#                  (u>=0)*np.exp(self.gamma*u) )
     def phi(self, u):
         """ Returns phi(u), the value of the Pexp-potential at the points u"""
-        return ( (u>=-1/self.gamma/(self.p-1))*(u<0)*(self.gamma*(self.p-1)*np.abs(u+1/self.gamma/(self.p-1)))**(1/(self.p-1)) + 
-                 (u>=0)*np.exp(self.gamma*u) )
+        return (u>=-1)*(u<0)*np.abs(u+1) + (u>=0)*np.exp(u)
 
     def phi_inv(self, u):
         """ Returns phi^{-1}(u), the inverse function of the zero-potential at the points u """
