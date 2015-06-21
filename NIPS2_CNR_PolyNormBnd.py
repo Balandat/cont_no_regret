@@ -25,24 +25,24 @@ show_plots = False
 save_anims = False
 show_anims = False
 
-T = 4000 # Time horizon
+T = 2500 # Time horizon
 L = 5.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
 Ngrid = 500000 # Number of gridpoints for the sampling step
 
-dom = unitbox(2)
+dom = unitbox(3)
 
 # before running the computation, read this file so we can later save a copy in the results folder
 with open(__file__, 'r') as f:
     thisfile = f.read()
         
-## bootstrap loss functions by sampling from the list of stored functions
-#idx = np.random.choice(len(coeffs2), T)
-#coeffs = [coeffs2[i] for i in idx]
-#exponents = [exponents2[i] for i in idx]
+# bootstrap loss functions by sampling from the list of stored functions
+idx = np.random.choice(len(coeffs), T)
+coeffs = [coeffs[i] for i in idx]
+exponents = [exponents[i] for i in idx]
 
-#lossfuncs = [PolynomialLossFunction(dom, coeff, expo) for coeff,expo in zip(coeffs,exponents)]
-Minf, M2 = np.max(inf_norms2), np.max(two_norms2)
+lossfuncs = [PolynomialLossFunction(dom, coeff, expo) for coeff,expo in zip(coeffs,exponents)]
+Minf, M2 = np.max(inf_norms), np.max(two_norms)
 
 with open('/home/max/Documents/CNR_results/2015-05-25_22-57/PolyNormBounds_Polynomial.piggl', 'rb') as f:
     res = pickle.load(f)
