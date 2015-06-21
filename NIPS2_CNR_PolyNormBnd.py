@@ -4,6 +4,7 @@ mpl.use('Agg')
 import multiprocessing as mp
 import numpy as np
 import datetime, os
+import pickle
 from ContNoRegret.NoRegretAlgos import ContNoRegretProblem
 from ContNoRegret.Domains import nBox, UnionOfDisjointnBoxes, DifferenceOfnBoxes, unitbox, hollowbox
 from ContNoRegret.LossFunctions import random_PolynomialLosses, random_AffineLosses, random_QuadraticLosses, PolynomialLossFunction
@@ -14,9 +15,9 @@ from ContNoRegret.Potentials import ExponentialPotential, IdentityPotential, pNo
 from ContNoRegret.loss_params import *
 
 # this is the location of the folder for the results
-results_path = '/Users/balandat/Documents/Code/Continuous_No-Regret/results/'
+results_path = '/home/max/Documents/results/'
 desc = 'NIPS2_CNR_PolyNormBounds'
-tmpfolder = '/Volumes/tmp/' # if possible, choose this to be a RamDisk
+tmpfolder = '/media/tmp/' # if possible, choose this to be a RamDisk
 
 # some flags for keeping a record of the simulation parameters
 save_res = True
@@ -27,7 +28,7 @@ show_anims = False
 T = 4000 # Time horizon
 L = 5.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
-Ngrid = 250000 # Number of gridpoints for the sampling step
+Ngrid = 500000 # Number of gridpoints for the sampling step
 
 dom = unitbox(2)
 
@@ -35,13 +36,18 @@ dom = unitbox(2)
 with open(__file__, 'r') as f:
     thisfile = f.read()
         
-# bootstrap loss functions by sampling from the list of stored functions
-idx = np.random.choice(len(coeffs2), T)
-coeffs = [coeffs2[i] for i in idx]
-exponents = [exponents2[i] for i in idx]
+## bootstrap loss functions by sampling from the list of stored functions
+#idx = np.random.choice(len(coeffs2), T)
+#coeffs = [coeffs2[i] for i in idx]
+#exponents = [exponents2[i] for i in idx]
 
-lossfuncs = [PolynomialLossFunction(dom, coeff, expo) for coeff,expo in zip(coeffs,exponents)]
+#lossfuncs = [PolynomialLossFunction(dom, coeff, expo) for coeff,expo in zip(coeffs,exponents)]
 Minf, M2 = np.max(inf_norms2), np.max(two_norms2)
+
+with open('/home/max/Documents/CNR_results/2015-05-25_22-57/PolyNormBounds_Polynomial.piggl', 'rb') as f:
+    res = pickle.load(f)
+
+lossfuncs = res[0].problem.lossfuncs
 
 # create Continuous No-Regret problem
 prob = ContNoRegretProblem(dom, lossfuncs, L, Minf, desc=desc)
@@ -61,6 +67,8 @@ processes += [pool.apply_async(CNR_worker, (prob, N, 'DA'), kwarg) for kwarg in 
 
 # wait for the processes to finish an collect the results
 results = [process.get() for process in processes]
+
+results += res
  
 # plot results and/or save a persistent copy (pickled) of the detailed results
 timenow = datetime.datetime.now().strftime('%Y-%m-%d_%H-%M')# create a time stamp for unambiguously naming the results folder
