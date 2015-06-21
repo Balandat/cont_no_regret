@@ -155,7 +155,6 @@ class UnionOfDisjointnBoxes(Domain):
         bounds = [(low, high) for low,high in zip(lower, upper)]
         return nBox(bounds)
     
-    
     def compute_Dmu(self, mu):
         """ Computes D_mu, i.e. sup_{s in S} ||s-mu||_2^2 """
         mu = np.array(mu, ndmin=2)
@@ -392,3 +391,10 @@ def vL(v, Npath=None, epsilon=0):
     else:
         return L
 
+def S():
+    """ Helper function to create the 'S' set """
+    xlims = [[0.0, 3.0], [2.0, 3.0], [0.0, 2.0], [0.0, 1.0], [1.0, 3.0]]
+    ylims = [[0.0, 1.0], [1.0, 3.0], [2.0, 3.0], [3.0, 5.0], [4.0, 5.0]]
+    S = UnionOfDisjointnBoxes([nBox([xlim, ylim]) for xlim,ylim in zip(xlims, ylims)])
+    S.v = 3/11.0
+    return S
