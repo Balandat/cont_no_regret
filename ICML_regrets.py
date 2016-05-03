@@ -31,7 +31,7 @@ show_plots = False
 save_anims = False
 show_anims = False
 
-T = 500 # Time horizon
+T = 7500 # Time horizon
 M = 10.0 # Uniform bound on the function (in the dual norm)
 L = 5.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
@@ -47,17 +47,50 @@ epsilon = 0.2
 mus = dom.sample_uniform(T)
 
 problems = []
-prob_descs = ['Affine', 'Quadratic', 'Polynomial']
+prob_descs = ['Polynomial', 'Quadratic'] #'Affine',
+NL = {'Quadratic': 15, 'Polynomial': 3}# {'Affine': 30, 
 
-# Affine Losses
-lossfuncs, M = random_AffineLosses(dom, L, T, d=2)
-problems.append(ContNoRegretProblem(dom, lossfuncs, L, M, desc=desc))
-# Quadratic Losses
-lossfuncs, Mnew, lambdamax = random_QuadraticLosses(dom, mus, L, M, pd=True)
-problems.append(ContNoRegretProblem(dom, lossfuncs, L, Mnew, desc=desc))
 # Polynomial Losses
-lossfuncs = random_PolynomialLosses(dom, T, M, L, 4, [1,2,3,4])
-problems.append(ContNoRegretProblem(dom, lossfuncs, L, M, desc=desc))
+pol_lfs = random_PolynomialLosses(dom, T, 3*M, L, 4, [1,2,3,4])
+Mpol = np.max([lf.max() for lf in pol_lfs])
+problems.append(ContNoRegretProblem(dom, pol_lfs, L, Mpol, desc=desc))
+# Affine Losses
+# affine_lfs, Maff = random_AffineLosses(dom, L, T, d=2)
+# affine_lfs = [lf for lf in affine_lfs if lf.max() < Mpol]
+# while len(affine_lfs) < T:
+#     newaffs, a = random_AffineLosses(dom, L, T, d=2)
+#     affine_lfs = affine_lfs + [lf for lf in newaffs if lf.max() < Mpol]
+# affine_lfs = affine_lfs[:T]
+# problems.append(ContNoRegretProblem(dom, affine_lfs, L, Mpol, desc=desc))
+# print('generated affine!')
+# Quadratic Losses
+quad_lfs, Mq, lambdamax = random_QuadraticLosses(dom, mus, L, 2*Mpol, pd=True)
+quad_lfs = [lf for lf in quad_lfs if lf.max() < Mpol]
+while len(quad_lfs) < T:
+    newquads, a, b  = random_QuadraticLosses(dom, mus, L, 2*Mpol, pd=True)
+    quad_lfs = quad_lfs + [lf for lf in newquads if lf.max() < Mpol]
+quad_lfs = quad_lfs[:T]
+problems.append(ContNoRegretProblem(dom, quad_lfs, L, Mpol, desc=desc))
+#problems.append(ContNoRegretProblem(dom, lossfuncs, L, Mpol, desc=desc))
+print('generated quad')
+
+# dom = hollowbox(3)
+# epsilon = 0.2
+# # mus = (1-epsilon)*dom.vertices()[0] + epsilon*dom.sample_uniform(T)
+# mus = dom.sample_uniform(T)
+
+# problems = []
+# prob_descs = ['Affine', 'Quadratic', 'Polynomial']
+
+# # Affine Losses
+# lossfuncs, M = random_AffineLosses(dom, L, T, d=2)
+# problems.append(ContNoRegretProblem(dom, lossfuncs, L, M, desc=desc))
+# # Quadratic Losses
+# lossfuncs, Mnew, lambdamax = random_QuadraticLosses(dom, mus, L, M, pd=True)
+# problems.append(ContNoRegretProblem(dom, lossfuncs, L, Mnew, desc=desc))
+# # Polynomial Losses
+# lossfuncs = random_PolynomialLosses(dom, T, M, L, 4, [1,2,3,4])
+# problems.append(ContNoRegretProblem(dom, lossfuncs, L, M, desc=desc))
 
 # only do Hedge
 pot = ExponentialPotential()

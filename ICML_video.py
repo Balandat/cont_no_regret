@@ -7,7 +7,7 @@ Illustration of densities for the ICML 2015 talk
 
 # Set up infrastructure and basic problem parameters
 import matplotlib as mpl
-# mpl.use('Agg') # this is needed when running on a linux server over terminal
+mpl.use('Agg') # this is needed when running on a linux server over terminal
 import multiprocessing as mp
 import numpy as np
 import datetime, os
@@ -28,14 +28,14 @@ tmpfolder = '/Volumes/tmp/' # if possible, choose this to be a RamDisk
 # some flags for keeping a record of the simulation parameters
 save_res = True
 show_plots = False
-save_anims = True
+save_anims = False
 show_anims = False
 
-T = 100 # Time horizon
+T = 10000 # Time horizon
 M = 10.0 # Uniform bound on the function (in the dual norm)
 L = 5.0 # Uniform bound on the Lipschitz constant
 N = 2500 # Number of parallel algorithm instances
-Ngrid = 250000 # Number of gridpoints for the sampling step
+Ngrid = 500000 # Number of gridpoints for the sampling step
 
 # before running the computation, read this file so we can later save a copy in the results folder
 with open(__file__, 'r') as f:
@@ -43,7 +43,8 @@ with open(__file__, 'r') as f:
 
 dom = S()
 epsilon = 0.2
-mus = (1-epsilon)*np.array([[1.5, 2.5]]*T) + epsilon*dom.sample_uniform(T)
+# mus = (1-epsilon)*np.array([[1.5, 2.5]]*T) + epsilon*dom.sample_uniform(T)
+mus = np.array([3*np.random.rand(T), 2+np.random.rand(T)]).T
 
 lossfuncs, Mnew, lambdamax = random_QuadraticLosses(dom, mus, L, M, pd=True) 
 Mnew = np.max([lossfunc.max() for lossfunc in lossfuncs])
@@ -52,8 +53,8 @@ pot = ExponentialPotential()
 
 theta = np.sqrt((pot.c_omega*(dom.n - np.log(dom.v)) 
                  + pot.d_omega*dom.v)/2/Mnew**2)
-theta_scalings = [1, 2]
-plt_titles = [r'$\theta = {{{}}}$'.format(theta*scal) for scal in theta_scalings]
+theta_scalings = [1, 3]
+plt_titles = [r'$\eta_t = {{{0:.2f}}}$'.format(theta*scal) + r' $\sqrt{\frac{\log t}{t}}$' for scal in theta_scalings]
 
 # the following runs fine if the script is the __main__ method, but crashes when running from ipython
 pool = mp.Pool(4)

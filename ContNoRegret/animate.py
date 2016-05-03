@@ -223,8 +223,8 @@ def save_animations_ICML(res1, res2, length=10, filename=None, show=False, **kwa
         ax.set_ylabel('$s_2$')
         ax.set_zlabel('$x(s)$')
         ax.tick_params(labelsize=8)
-        ax.set_zlim3d([0, zmax])
-        ax.set_zlim3d([0, zmax])
+        ax.set_zlim3d([-0.05, zmax])
+        ax.set_zlim3d([-0.05, zmax])
         ax.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
         ax.w_yaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
         ax.w_zaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
@@ -233,6 +233,9 @@ def save_animations_ICML(res1, res2, length=10, filename=None, show=False, **kwa
     plt.tight_layout()
     
     def update_plots(framenum, data, plot, titles=kwargs.get('titles')):
+        # fig.clear()
+        # ax1 = fig.add_subplot(1, 2, 1, projection='3d')
+        # ax2 = fig.add_subplot(1, 2, 2, projection='3d')
         ax1.clear(), ax2.clear()
         for points,dat in zip(pltpoints1, data[0][framenum]):
             plot1 = ax1.plot_trisurf(points[:,0], points[:,1], dat, linewidth=0, 
@@ -249,8 +252,8 @@ def save_animations_ICML(res1, res2, length=10, filename=None, show=False, **kwa
             ax.set_ylabel('$s_2$', fontsize=14)
             ax.set_zlabel('$x(s)$', fontsize=14)
             ax.tick_params(labelsize=8)
-            ax.set_zlim3d([0, zmax])
-            ax.set_zlim3d([0, zmax])
+            ax.set_zlim3d([-0.05, zmax])
+            ax.set_zlim3d([-0.05, zmax])
             ax.w_xaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
             ax.w_yaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
             ax.w_zaxis.set_pane_color((1.0, 1.0, 1.0, 1.0))
